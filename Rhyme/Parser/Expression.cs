@@ -15,6 +15,8 @@ namespace Rhyme.Parser
         {
             T Visit(Literal literalExpr);
             T Visit(Binary binaryExpr);
+            T Visit(Block blockExpr);
+
         }
         abstract public T Accept<T>(Visitor<T> visitor);
 
@@ -27,6 +29,11 @@ namespace Rhyme.Parser
         {
             public override T Accept<T>(Visitor<T> visitor) => visitor.Visit(this);
 
+        }
+
+        public record Block(IReadOnlyCollection<Expression> ExpressionsStatements) : Expression
+        {
+            public override T Accept<T>(Visitor<T> visitor) => visitor.Visit(this);
         }
     }
 }

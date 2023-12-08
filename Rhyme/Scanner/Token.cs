@@ -20,7 +20,15 @@ namespace Rhyme.Scanner
         Plus, Minus, Star, Slash, Bang,
         
         Equal, EqualEqual, NotEqual,
-        GreaterThan, SmallerThan,
+        GreaterThan, SmallerThan, GreaterEqual, SmallerEqual,
+
+        // Keywords
+        If, For, While, Using, 
+
+
+        // Types
+        Void,
+        U8, U16, U32, U64, I8, I16, I32, I64, Flt32, Flt64,
     }
 
     internal record Token(string Lexeme, TokenType Type, int Line, object Value = null);

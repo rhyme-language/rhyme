@@ -13,6 +13,19 @@ namespace Rhyme.Scanner
         int _line;
         int _pos;
 
+        Dictionary<string, TokenType> _keywords = new Dictionary<string, TokenType>() {           
+            { "if", TokenType.If },
+            { "using", TokenType.Using },
+            { "for", TokenType.For },
+            { "while", TokenType.While },
+
+            // Primitive Types
+            { "void", TokenType.Void },
+            { "u8", TokenType.U8 }, { "u16", TokenType.U16 }, { "u32", TokenType.U32 }, { "u64", TokenType.U64 },
+            { "i8", TokenType.I8 }, { "i16", TokenType.I16 }, { "i32", TokenType.I32 }, { "i64", TokenType.I64 },
+
+        };   
+
         public Scanner(string source)
         {
             _source = source;
@@ -40,6 +53,15 @@ namespace Rhyme.Scanner
                     case ')': yield return new Token(")", TokenType.RightParen, _line); break;
                     case '{': yield return new Token("{", TokenType.LeftCurly, _line); break;
                     case '}': yield return new Token("}", TokenType.RightCurly, _line); break;
+
+                    case '>':
+                        if (Peek() == '=') { yield return new Token(">=", TokenType.GreaterEqual, _line); break; }
+                        yield return new Token(">", TokenType.GreaterThan, _line); break;
+                    case '<':
+                        if (Peek() == '=') { yield return new Token("<=", TokenType.SmallerEqual, _line); break; }
+                        yield return new Token("<", TokenType.SmallerThan, _line); break;
+
+
 
                     case ';': yield return new Token(";", TokenType.Semicolon, _line); break;
 
@@ -95,14 +117,19 @@ namespace Rhyme.Scanner
 
         Token Identifier()
         {
+            
             int start = _pos;
             Advance();
 
             while (char.IsLetter(Current) || Current == '_' || char.IsDigit(Current))
                 _pos++;
 
-            _pos--;
-            return new Token(_source.Substring(start, _pos - start + 1), TokenType.Identifier, _line);
+            string lexeme = _source.Substring(start, _pos - start);
+
+            if (_keywords.ContainsKey(lexeme))
+                return new Token(lexeme, _keywords[lexeme], _line);
+
+            return new Token(lexeme, TokenType.Identifier, _line);
         }
 
         Token Number()
