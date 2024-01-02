@@ -9,7 +9,7 @@ using Rhyme.Parser;
 
 Scanner scanner = Scanner.FromFile("code.rhm");
 Parser parser = new Parser(scanner.Scan());
-parser.Parse();
+var root = parser.Parse();
 
 foreach (var token in scanner.Scan())
 {

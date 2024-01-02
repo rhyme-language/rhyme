@@ -1,8 +1,9 @@
-﻿
-void() main = {
-	u32 x = 3;
-	
-	if x > 2 {
-		x = 4;
-	}
+﻿void() main = {	
+	x = 3;
+	y = 3;
+};
+
+server() func = {
+	f = 3;
+	u32 x = 4;  
 };

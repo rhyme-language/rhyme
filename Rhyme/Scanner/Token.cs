@@ -8,22 +8,22 @@ namespace Rhyme.Scanner
 {
     internal enum TokenType
     {
-        
+
         SingleQuote, DoubleQuote,
         LeftParen, RightParen, LeftCurly, RightCurly,
         Comma, Colon, Semicolon, BackTick,
 
         Hash, Caret, Ampersand, Percent, Dollar,
 
-        Identifier, Integer, Float, 
+        Identifier, Integer, Float,
 
-        Plus, Minus, Star, Slash, Bang,
-        
+        Plus, Minus, Asterisk, Slash, Bang,
+
         Equal, EqualEqual, NotEqual,
         GreaterThan, SmallerThan, GreaterEqual, SmallerEqual,
 
         // Keywords
-        If, For, While, Using, 
+        If, For, While, Using,
 
 
         // Types
@@ -32,7 +32,5 @@ namespace Rhyme.Scanner
     }
 
     internal record Token(string Lexeme, TokenType Type, int Line, object Value = null);
-    // ->
-
 
 }

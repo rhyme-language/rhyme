@@ -65,7 +65,7 @@ namespace Rhyme.Scanner
 
                     case ';': yield return new Token(";", TokenType.Semicolon, _line); break;
 
-                    case '*': yield return new Token("*", TokenType.Star, _line); break;
+                    case '*': yield return new Token("*", TokenType.Asterisk, _line); break;
 
                     case '+': yield return new Token("+", TokenType.Plus, _line); break;
                     case '-': yield return new Token("-", TokenType.Minus, _line); break;
@@ -125,6 +125,8 @@ namespace Rhyme.Scanner
                 _pos++;
 
             string lexeme = _source.Substring(start, _pos - start);
+
+            _pos--;
 
             if (_keywords.ContainsKey(lexeme))
                 return new Token(lexeme, _keywords[lexeme], _line);
