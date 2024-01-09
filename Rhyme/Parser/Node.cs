@@ -10,8 +10,15 @@ namespace Rhyme.Parser
 {
     internal record Declaration(Type type, string identifier);
     
+    /// <summary>
+    /// Represents a node in an abstract syntax tree
+    /// </summary>
     internal interface Node
     {
+        /// <summary>
+        /// Vistitor for traversing the tree.
+        /// </summary>
+        /// <typeparam name="T">Return type of a visit operation.</typeparam>
         public interface Visitor<T>
         {
             T Visit(Literal literalExpr);

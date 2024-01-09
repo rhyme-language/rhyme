@@ -15,7 +15,7 @@ namespace Rhyme.Scanner
 
         Hash, Caret, Ampersand, Percent, Dollar,
 
-        Identifier, Integer, Float,
+        Identifier, Integer, Float, String,
 
         Plus, Minus, Asterisk, Slash, Bang,
 
@@ -23,7 +23,7 @@ namespace Rhyme.Scanner
         GreaterThan, SmallerThan, GreaterEqual, SmallerEqual,
 
         // Keywords
-        If, For, While, Using,
+        If, Else, For, While, Using,
 
 
         // Types

@@ -8,46 +8,6 @@ using Rhyme.Scanner;
 
 namespace Rhyme.Parser
 {
-    /*
-    file
-        : (decl | using_stmt)+
-        ;
-
-    bind
-        : decl('=' expression)? ';'
-        ;
-
-    decl : type IDENTIFIER;
-
-        using_stmt: 'using' STRING_LITERAL 'as' IDENTIFIER ;
-
-    type : PRIM_TYPE | func_type | IDENTIFIER;
-    func_type: type '(' (decl (',' decl)*)? ')';
-
-
-    expression
-        : comparison
-        | stmt_expr
-        ;
-
-    block
-        : '{' (decl | statement)* '}'
-        ;
-
-    stmt_expr
-        : if_stmt
-        | asgmnt
-        | block
-        ;
-
-    statement
-        : stmt_expr ';'
-        ;
-
-    if_stmt : 'if' expression stmt_expr('else' stmt_expr)?;
-    asgmnt : IDENTIFIER '=' expression ';'
-     */
-
     internal class Parser
     {
         LinkedList<Token> _tokens;
@@ -59,7 +19,12 @@ namespace Rhyme.Parser
             _current = _tokens.First;
         }
 
+        public Node Parse()
+        {
+            return CompilationUnit();
+        }
 
+        #region Helpers
         private void Advance()
         {
             _current = _current.Next;
@@ -72,7 +37,7 @@ namespace Rhyme.Parser
         {
             foreach (TokenType t in type)
             {
-                if (_current.Value.Type == t)
+                if (!AtEnd() && _current.Value.Type == t)
                 {
                     Advance();
                     return true;
@@ -86,7 +51,7 @@ namespace Rhyme.Parser
             {
                 if (CurrentToken == type)
                 {
-                    var token =  _current.Value;
+                    var token = _current.Value;
                     Advance();
                     return token;
                 }
@@ -94,12 +59,9 @@ namespace Rhyme.Parser
             throw new Exception(errorMessage);
         }
 
+        #endregion
 
-        public Node Parse()
-        {
-            return CompilationUnit();
-        }
-
+        #region Statements
         private Node CompilationUnit()
         {
             var units = new List<Node>();
@@ -114,7 +76,53 @@ namespace Rhyme.Parser
 
             return new Node.CompilationUnit(units);
         }
+        private Type Type()
+        {
+            Type returnType = null;
 
+            switch (_current.Value.Type)
+            {
+                case TokenType.Identifier:
+                case TokenType.Void:
+                case TokenType.U8:
+                case TokenType.U16:
+                case TokenType.U32:
+                case TokenType.U64:
+                    Console.WriteLine(_current.Value.Type);
+                    Advance();
+
+                    returnType = new Type.Primitive(Rhyme.Parser.Type.Primitives.Void);
+                    break;
+            }
+
+            if (Match(TokenType.LeftParen)) // Function
+            {
+
+                var arguments = new List<Declaration>();
+                if (_current.Value.Type != TokenType.RightParen)
+                {
+                    do
+                    {
+                        arguments.Add(Declaration());
+                    } while (Match(TokenType.Comma));
+                }
+
+                Consume(TokenType.RightParen, "Expect ')' after arguments.");
+
+                // build the type descriptor
+
+                return new Type.Function(returnType, arguments.Select(a => a.type).ToArray());
+
+            }
+
+            return returnType;
+        }
+
+
+        private Node UsingStatement()
+        {
+            throw new NotImplementedException();
+        }
         private Node Binding()
         {
 
@@ -128,7 +136,7 @@ namespace Rhyme.Parser
             }
             Consume(TokenType.Semicolon, "Expects a ';' after a binding value");
             return new Node.BindingDeclaration(decl, expr);
-            
+
         }
 
         private Declaration Declaration()
@@ -137,7 +145,9 @@ namespace Rhyme.Parser
             var identifierToken = Consume(TokenType.Identifier, "Expects a binding name.");
             return new Declaration(type, identifierToken.Lexeme);
         }
+        #endregion
 
+        #region Expressions
         private Node Expression()
         {
             return Assignment();
@@ -145,20 +155,18 @@ namespace Rhyme.Parser
 
         private Node If()
         {
-            var condition = Expression();
-            var body = Statement();
+            Node condition = Expression();
+            Node then_body = Expression();
+            Node else_body = null;
 
-            return null;
+            if (Match(TokenType.Else))
+            {
+                else_body = Expression();
+            }
+            return new Node.If(condition, then_body, else_body);
 
         }
-        /*
-         expression
-                  : assignment
-                  | block
-                  | if_stmt
-                  ;
 
-         */
         private Node Statement()
         {
             var type = Type();
@@ -174,27 +182,31 @@ namespace Rhyme.Parser
 
                 node = new Node.Assignment(identifier_token, assignment_expression);
             }
-            else if (!Match(TokenType.Equal))        // rule: bind
+            else if (!Match(TokenType.Equal)) 
             {
-                var identifier_token = Consume(TokenType.Identifier, "Expects a binding name.");
-                Console.WriteLine($"decl: {identifier_token.Lexeme}:");
-
-                Node expr = null;
-                if (Match(TokenType.Equal))
+                if(type != null)    // Valid type, then it's a bind
                 {
-                    expr = Expression();
+                    var identifier_token = Consume(TokenType.Identifier, "Expects a binding name.");
+                    Console.WriteLine($"decl: {identifier_token.Lexeme}:");
+
+                    Node expr = null;
+                    if (Match(TokenType.Equal))
+                    {
+                        expr = Expression();
+                    }
+
+                    node = new Node.BindingDeclaration(new Declaration(type, identifier_token.Lexeme), expr);
+                }
+                else    // Invalid type, it's an expression statement.
+                {
+                    node = Expression();
                 }
 
-                node = new Node.BindingDeclaration(new Declaration(type, identifier_token.Lexeme), expr);
-            }
-            else
-            {
-                node = Expression();
             }
 
             Consume(TokenType.Semicolon, "';' Expected");
 
-            
+
             return node;
         }
 
@@ -215,8 +227,8 @@ namespace Rhyme.Parser
         private Node Equality()
         {
             var lhs = Comparison();
-            
-            while(Match(TokenType.EqualEqual, TokenType.NotEqual))
+
+            while (Match(TokenType.EqualEqual, TokenType.NotEqual))
             {
                 var rhs = Comparison();
                 var op = _current.Previous.Value;
@@ -269,7 +281,7 @@ namespace Rhyme.Parser
 
         private Node Unary()
         {
-            if(Match(TokenType.Bang, TokenType.Minus))
+            if (Match(TokenType.Bang, TokenType.Minus))
             {
                 var operand = Primary();
                 var op = _current.Previous.Value;
@@ -282,10 +294,10 @@ namespace Rhyme.Parser
         private Node Primary()
         {
 
-            if (Match(TokenType.Identifier)) 
+            if (Match(TokenType.Identifier))
                 return new Node.Binding(_current.Previous.Value);
 
-            if (Match(TokenType.Integer)) 
+            if (Match(TokenType.Integer))
                 return new Node.Literal(_current.Previous.Value);
 
             if (Match(TokenType.LeftParen))
@@ -298,7 +310,7 @@ namespace Rhyme.Parser
             if (Match(TokenType.LeftCurly))
                 return Block();
 
-            if (Match(TokenType.If)) 
+            if (Match(TokenType.If))
                 return If();
 
             return null;
@@ -310,57 +322,13 @@ namespace Rhyme.Parser
             var statements = new List<Node>();
             while (!Match(TokenType.RightCurly))
             {
-                statements.Add(Statement());   
+                statements.Add(Statement());
             }
             return new Node.Block(statements);
         }
 
-        private Type Type()
-        {
-            Type returnType = null;
-
-            switch (_current.Value.Type)
-            {
-                case TokenType.Identifier:
-                case TokenType.Void:
-                case TokenType.U8:
-                case TokenType.U16:
-                case TokenType.U32:
-                case TokenType.U64:
-                    Console.WriteLine(_current.Value.Type);
-                    Advance();
-
-                    returnType = new Type.Primitive(Rhyme.Parser.Type.Primitives.Void);
-                    break;
-            }
-           
-            if (Match(TokenType.LeftParen)) // Function
-            {
-
-                var arguments = new List<Declaration>();
-                if (_current.Value.Type != TokenType.RightParen)
-                {
-                    do
-                    {
-                        arguments.Add(Declaration());
-                    } while (Match(TokenType.Comma));
-                }
-
-                Consume(TokenType.RightParen, "Expect ')' after arguments.");
-
-                // build the type descriptor
-
-                return new Type.Function(returnType, arguments.Select(a => a.type).ToArray());
-
-            }
-
-            return returnType;
-        }
+        #endregion
 
 
-        private Node UsingStatement()
-        {
-            throw new NotImplementedException();
-        }
     }
 }
