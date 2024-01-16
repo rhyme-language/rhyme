@@ -8,10 +8,14 @@ using Rhyme.Scanner;
 
 namespace Rhyme.Parser
 {
-    internal class Parser
+    internal class Parser : ICompilerPass
     {
         LinkedList<Token> _tokens;
         LinkedListNode<Token> _current;
+
+        List<PassError> _errors = new List<PassError>();
+        public bool HadError { get; private set; }
+        public IReadOnlyCollection<PassError> Errors { get; }
 
         public Parser(IEnumerable<Token> Tokens)
         {
@@ -145,27 +149,6 @@ namespace Rhyme.Parser
             var identifierToken = Consume(TokenType.Identifier, "Expects a binding name.");
             return new Declaration(type, identifierToken.Lexeme);
         }
-        #endregion
-
-        #region Expressions
-        private Node Expression()
-        {
-            return Assignment();
-        }
-
-        private Node If()
-        {
-            Node condition = Expression();
-            Node then_body = Expression();
-            Node else_body = null;
-
-            if (Match(TokenType.Else))
-            {
-                else_body = Expression();
-            }
-            return new Node.If(condition, then_body, else_body);
-
-        }
 
         private Node Statement()
         {
@@ -182,9 +165,9 @@ namespace Rhyme.Parser
 
                 node = new Node.Assignment(identifier_token, assignment_expression);
             }
-            else if (!Match(TokenType.Equal)) 
+            else if (!Match(TokenType.Equal))
             {
-                if(type != null)    // Valid type, then it's a bind
+                if (type != null)    // Valid type, then it's a bind
                 {
                     var identifier_token = Consume(TokenType.Identifier, "Expects a binding name.");
                     Console.WriteLine($"decl: {identifier_token.Lexeme}:");
@@ -209,6 +192,30 @@ namespace Rhyme.Parser
 
             return node;
         }
+
+
+        #endregion
+
+        #region Expressions
+        private Node Expression()
+        {
+            return Assignment();
+        }
+
+        private Node If()
+        {
+            Node condition = Expression();
+            Node then_body = Expression();
+            Node else_body = null;
+
+            if (Match(TokenType.Else))
+            {
+                else_body = Expression();
+            }
+            return new Node.If(condition, then_body, else_body);
+
+        }
+
 
         private Node Assignment()
         {
@@ -313,7 +320,7 @@ namespace Rhyme.Parser
             if (Match(TokenType.If))
                 return If();
 
-            return null;
+            throw new Exception();
         }
 
         private Node Block()

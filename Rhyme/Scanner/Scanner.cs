@@ -7,11 +7,16 @@ using System.Threading.Tasks;
 namespace Rhyme.Scanner
 {
 
-    internal class Scanner
+    internal class Scanner : ICompilerPass
     {
         string _source;
         int _line;
         int _pos;
+        int _start_line;
+        List<PassError> _errors = new List<PassError>();
+
+        public bool HadError { get; private set; }
+        public IReadOnlyCollection<PassError> Errors { get; private set; }
 
         Dictionary<string, TokenType> _keywords = new Dictionary<string, TokenType>() {
             { "if", TokenType.If },
@@ -29,6 +34,7 @@ namespace Rhyme.Scanner
         public Scanner(string source)
         {
             _source = source;
+            Errors = _errors;
         }
 
         public static Scanner FromFile(string filePath)
@@ -39,103 +45,197 @@ namespace Rhyme.Scanner
         public IEnumerable<Token> Scan()
         {
             _line = 1;
+            
 
-            for (_pos = 0; _pos < _source.Length; _pos++)
+            for (_pos = 0; _pos < _source.Length; _pos++, _start_line++)
             {
+                TokenType token_type = TokenType.None;
+
+                var start = _pos;
                 switch (Current)
                 {
                     case '/':
-                        if (Peek() == '/') Comment();
-                        if (Peek() == '*') Comment(true);
+                        Advance();
+                        if (Match('/')) Comment();
+                        if (Match('*')) Comment(true);
                         break;
 
-                    case '(': yield return new Token("(", TokenType.LeftParen, _line); break;
-                    case ')': yield return new Token(")", TokenType.RightParen, _line); break;
-                    case '{': yield return new Token("{", TokenType.LeftCurly, _line); break;
-                    case '}': yield return new Token("}", TokenType.RightCurly, _line); break;
+                    case '(': token_type = TokenType.LeftParen; break;
+                    case ')': token_type = TokenType.RightParen; break;
+                    case '{': token_type = TokenType.LeftCurly; break;
+                    case '}': token_type = TokenType.RightCurly; break;
 
                     
                     case '>':
-                        if (Peek() == '=') 
+                        Advance();
+                        if (Match('=', false)) 
                         {
-                            yield return new Token(">=", TokenType.GreaterEqual, _line);
+                            token_type = TokenType.GreaterEqual;
                             break;
                         }
-                        yield return new Token(">", TokenType.GreaterThan, _line); 
+                        token_type = TokenType.GreaterThan;
                         break;
 
                     case '<':
-                        if (Peek() == '=') 
+                        Advance();
+                        if (Match('=', false)) 
                         { 
-                            yield return new Token("<=", TokenType.SmallerEqual, _line); 
+                            token_type = TokenType.SmallerEqual; 
                             break;
                         }
-                        yield return new Token("<", TokenType.SmallerThan, _line); 
+                        token_type = TokenType.SmallerThan; 
                         break;
 
-                    case ';': yield return new Token(";", TokenType.Semicolon, _line); break;
+                    case ';': token_type = TokenType.Semicolon; break;
 
-                    case '*': yield return new Token("*", TokenType.Asterisk, _line); break;
+                    case '*': token_type = TokenType.Asterisk; break;
 
-                    case '+': yield return new Token("+", TokenType.Plus, _line); break;
-                    case '-': yield return new Token("-", TokenType.Minus, _line); break;
-                    case '#': yield return new Token("#", TokenType.Hash, _line); break;
+                    case '+': token_type = TokenType.Plus; break;
+                    case '-': token_type = TokenType.Minus; break;
+                    case '#': token_type = TokenType.Hash; break;
 
                     case '=':
-                        if (Peek() == '=') { 
-                            yield return new Token("==", TokenType.EqualEqual, _line); break; }
-                        yield return new Token("=", TokenType.Equal, _line); break;
+                        if (Match('=', false)) { 
+                            token_type = TokenType.EqualEqual; break; }
+                        token_type = TokenType.Equal; break;
 
                     case '!':
-                        if (Peek() == '=') { yield return new Token("!=", TokenType.NotEqual, _line); break; }
-                        yield return new Token("!", TokenType.Bang, _line); break;
+                        if (Match('=', false)) { token_type = TokenType.NotEqual; break; }
+                        token_type = TokenType.Bang; break;
 
                     case '"':
                     case '\'':
                         yield return String(Current);
                         break;
-                    case '\n': _line++; break;
+                    case '\n':
+                        _line++;
+                        _start_line = 0;
+                        continue;
 
-
+                    case ' ':
+                    case '\r':
+                    case '\t':
+                        continue;
                 }
 
-                if (char.IsLetter(Current) || Current == '_')   yield return Identifier();
-                else if (char.IsDigit(Current))                 yield return Number(); 
+                if (token_type != TokenType.None) { 
+                    yield return new Token(_source.Substring(start, _pos - start + 1), token_type, _line, null);
+                }
+                else if (char.IsLetter(Current) || Current == '_')
+                {
+                    yield return Identifier();
+                } 
+                else if (char.IsDigit(Current))
+                {
+                    yield return Number();
+                }
+                else
+                {
+                    HadError = true;
+                    Error(_line,_start_line, 1, "Unexpected character");
+                }
 
+
+                // TODO: Pass Errors.
+               
             }
 
 
         }
 
+        #region Helpers
+        bool Match(char c, bool advance = true)
+        {
+            if (!AtEnd)
+            {
+                if (Current != c)
+                    return false;
+
+                if (advance)
+                    Advance();
+
+                return true;
+            }
+            return false;
+        }
+        void Advance(int steps = 1)
+        {
+            if (!AtEnd)
+            {
+                _pos += steps;
+                _start_line += steps;
+            }
+        }
+
+        bool AtEnd { get => _pos >= _source.Length; }
+        char Current
+        {
+            get
+            {
+                if (!AtEnd)
+                    return _source[_pos];
+                else
+                    return '\0';
+            }
+        }
+
+        bool TryMatch(params char[] characters)
+        {
+            foreach (var c in characters)
+            {
+                if (!AtEnd)
+                {
+                    if (c != Current)
+                        return false;
+
+                    Advance();
+                    continue;
+                }
+            }
+
+            return true;
+        }
+
+        void Error(int line, int start, int length, string message)
+        {
+            HadError = true;
+            _errors.Add(new PassError(line, start, length, message));
+        }
+        #endregion
+
+        #region Lexical Rules
         void Comment(bool multiline = false)
         {
             if (multiline)
             {
-                _pos += 2; // /*
-                while (!AtEnd && Current != '*' && Peek() != '/')
+                Advance();
+                while (!TryMatch('*', '/'))
                 {
+                    if (AtEnd)
+                    {
+
+                    }
                     if (Current == '\n') _line++;
-                    _pos++;
+                    Advance();
                 }
 
-                _pos += 2;
+                Advance(2);
             }
             else
             {
-                while (Peek() != '\n')
-                    _pos++;
+                while (Match('\n', false))
+                    Advance();
             }
 
 
         }
-
         Token String(char stringQuote)
         {
             int start = _pos;
             Advance();
 
             while (!AtEnd && Current != stringQuote)
-                _pos++;
+                Advance();
 
             string lexeme = _source.Substring(start, _pos - start + 1);
 
@@ -148,7 +248,7 @@ namespace Rhyme.Scanner
             Advance();
 
             while (!AtEnd && (char.IsLetterOrDigit(Current) || Current == '_'))
-                _pos++;
+                Advance();
 
             string lexeme = _source.Substring(start, _pos - start);
 
@@ -166,34 +266,12 @@ namespace Rhyme.Scanner
             Advance();
 
             while (!AtEnd && char.IsNumber(Current))
-                _pos++;
+                Advance();
 
             _pos--;
             return new Token(_source.Substring(start, _pos - start + 1), TokenType.Integer, _line, int.Parse(_source.Substring(start, _pos - start + 1)));
         }
-
-        void Advance()
-        {
-            _pos++;
-        }
-
-        bool AtEnd { get => _pos >= _source.Length; }
-        char Current {         
-            get {
-                if (!AtEnd)
-                    return _source[_pos];
-                else
-                    return '\0';
-            }
-        }
-
-        char Peek()
-        {
-            if (!AtEnd)
-                return _source[_pos + 1];
-            else
-                return '\0';
-        }
+        #endregion
 
     }
 }

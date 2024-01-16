@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="LLVMSharp" Version="16.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="code.rhm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
