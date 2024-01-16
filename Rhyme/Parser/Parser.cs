@@ -37,7 +37,7 @@ namespace Rhyme.Parser
         private bool AtEnd() => _current == null;
         TokenType CurrentToken { get => _current.Value.Type; }
 
-        private bool Match(params TokenType[] type)
+        private bool Match(params TokenType[] types)
         {
             foreach (TokenType t in type)
             {
