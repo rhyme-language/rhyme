@@ -26,7 +26,7 @@ namespace Rhyme.Parser
             T Visit(Unary unaryExpr);
             T Visit(Block blockExpr);
             T Visit(BindingDeclaration bindingDecl);
-            T Visit(If ifStmt);
+            T Visit(IfExpression ifStmt);
             T Visit(Assignment assignment);
             T Visit(Binding binding);
             T Visit(Grouping grouping);
