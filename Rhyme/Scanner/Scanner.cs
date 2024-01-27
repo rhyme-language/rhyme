@@ -12,7 +12,6 @@ namespace Rhyme.Scanner
         string _source;
         int _line;
         int _pos;
-        int _start_line;
         List<PassError> _errors = new List<PassError>();
 
         public bool HadError { get; private set; }
@@ -24,8 +23,10 @@ namespace Rhyme.Scanner
             { "for", TokenType.For },
             { "while", TokenType.While },
 
+            { "var", TokenType.Var },
+
             // Primitive Types
-            { "void", TokenType.Void },
+            { "void", TokenType.Void }, {"str", TokenType.Str },
             { "u8", TokenType.U8 }, { "u16", TokenType.U16 }, { "u32", TokenType.U32 }, { "u64", TokenType.U64 },
             { "i8", TokenType.I8 }, { "i16", TokenType.I16 }, { "i32", TokenType.I32 }, { "i64", TokenType.I64 },
 
@@ -47,7 +48,7 @@ namespace Rhyme.Scanner
             _line = 1;
             
 
-            for (_pos = 0; _pos < _source.Length; _pos++, _start_line++)
+            for (_pos = 0; _pos < _source.Length; _pos++)
             {
                 TokenType token_type = TokenType.None;
 
@@ -56,8 +57,16 @@ namespace Rhyme.Scanner
                 {
                     case '/':
                         Advance();
-                        if (Match('/')) Comment();
-                        if (Match('*')) Comment(true);
+                        if (Match('/'))
+                        {
+                            Comment();
+                            continue;
+                        }
+                        if (Match('*'))
+                        {
+                            Comment(true);
+                            continue;
+                        }
                         break;
 
                     case '(': token_type = TokenType.LeftParen; break;
@@ -95,21 +104,22 @@ namespace Rhyme.Scanner
                     case '#': token_type = TokenType.Hash; break;
 
                     case '=':
+                        Advance();
                         if (Match('=', false)) { 
                             token_type = TokenType.EqualEqual; break; }
                         token_type = TokenType.Equal; break;
 
                     case '!':
+                        Advance();
                         if (Match('=', false)) { token_type = TokenType.NotEqual; break; }
                         token_type = TokenType.Bang; break;
 
                     case '"':
                     case '\'':
                         yield return String(Current);
-                        break;
+                        continue;
                     case '\n':
                         _line++;
-                        _start_line = 0;
                         continue;
 
                     case ' ':
@@ -132,7 +142,7 @@ namespace Rhyme.Scanner
                 else
                 {
                     HadError = true;
-                    Error(_line,_start_line, 1, "Unexpected character");
+                    Error(_line, _pos, 1, "Unexpected character");
                 }
 
 
@@ -163,7 +173,6 @@ namespace Rhyme.Scanner
             if (!AtEnd)
             {
                 _pos += steps;
-                _start_line += steps;
             }
         }
 
@@ -223,7 +232,7 @@ namespace Rhyme.Scanner
             }
             else
             {
-                while (Match('\n', false))
+                while (!AtEnd && !Match('\n', false))
                     Advance();
             }
 
@@ -234,8 +243,18 @@ namespace Rhyme.Scanner
             int start = _pos;
             Advance();
 
-            while (!AtEnd && Current != stringQuote)
+            while (Current != stringQuote)
+            {
+                if (AtEnd)
+                {
+                    Error(_line, start, _pos - start, "Unterminated string.");
+                    return null;
+                }
+
                 Advance();
+            }
+
+            //Advance();
 
             string lexeme = _source.Substring(start, _pos - start + 1);
 
