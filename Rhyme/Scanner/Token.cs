@@ -23,12 +23,12 @@ namespace Rhyme.Scanner
         GreaterThan, SmallerThan, GreaterEqual, SmallerEqual,
 
         // Keywords
-        If, Else, For, While, Using,
+        If, Else, For, While, Using, Var,
 
 
         // Types
         Void,
-        U8, U16, U32, U64, I8, I16, I32, I64, Flt32, Flt64,
+        U8, U16, U32, U64, I8, I16, I32, I64, f32, f64, Str,
         None,
     }
 

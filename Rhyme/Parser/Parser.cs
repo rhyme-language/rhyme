@@ -8,6 +8,13 @@ using Rhyme.Scanner;
 
 namespace Rhyme.Parser
 {
+    /// <summary>
+    /// Parser compiler pass: <br/>
+    /// - Parses the source code given its <see cref="Token"/>s. <br/>
+    /// - Generating the abstract syntax tree (AST). <br/>
+    /// - Reports syntactical errors. <br/>
+    /// - Annotates tree <see cref="Node"/>s with <see cref="Rhyme.Parser.RhymeType"/>s. <br/>
+    /// </summary>
     internal class Parser : ICompilerPass
     {
         LinkedList<Token> _tokens;
@@ -23,7 +30,7 @@ namespace Rhyme.Parser
             _current = _tokens.First;
         }
 
-        public Node Parse()
+        public Node.CompilationUnit Parse()
         {
             return CompilationUnit();
         }
@@ -39,7 +46,7 @@ namespace Rhyme.Parser
 
         private bool Match(params TokenType[] types)
         {
-            foreach (TokenType t in type)
+            foreach (TokenType t in types)
             {
                 if (!AtEnd() && _current.Value.Type == t)
                 {
@@ -66,7 +73,7 @@ namespace Rhyme.Parser
         #endregion
 
         #region Statements
-        private Node CompilationUnit()
+        private Node.CompilationUnit CompilationUnit()
         {
             var units = new List<Node>();
 
@@ -80,22 +87,25 @@ namespace Rhyme.Parser
 
             return new Node.CompilationUnit(units);
         }
-        private Type Type()
+        private RhymeType Type()
         {
-            Type returnType = null;
-
-            switch (_current.Value.Type)
+            RhymeType returnType = null;
+            var type = _current.Value.Type;
+            switch (type)
             {
                 case TokenType.Identifier:
                 case TokenType.Void:
+                case TokenType.Var:
                 case TokenType.U8:
                 case TokenType.U16:
                 case TokenType.U32:
                 case TokenType.U64:
-                    Console.WriteLine(_current.Value.Type);
+                case TokenType.f32:
+                case TokenType.f64:
+                case TokenType.Str:
                     Advance();
 
-                    returnType = new Type.Primitive(Rhyme.Parser.Type.Primitives.Void);
+                    returnType = new RhymeType.Primitive(RhymeType.FromToken(type));
                     break;
             }
 
@@ -115,7 +125,7 @@ namespace Rhyme.Parser
 
                 // build the type descriptor
 
-                return new Type.Function(returnType, arguments.Select(a => a.type).ToArray());
+                return new RhymeType.Function(returnType, arguments.Select(a => a.type).ToArray());
 
             }
 
@@ -136,7 +146,6 @@ namespace Rhyme.Parser
             if (Match(TokenType.Equal))
             {
                 expr = Expression();
-
             }
             Consume(TokenType.Semicolon, "Expects a ';' after a binding value");
             return new Node.BindingDeclaration(decl, expr);
@@ -145,12 +154,23 @@ namespace Rhyme.Parser
 
         private Declaration Declaration()
         {
-            Type type = Type();
+            RhymeType type = Type();
             var identifierToken = Consume(TokenType.Identifier, "Expects a binding name.");
-            return new Declaration(type, identifierToken.Lexeme);
+            return new Declaration(type, identifierToken);
         }
 
         private Node Statement()
+        {
+            var node = Expression();
+            Consume(TokenType.Semicolon, "';' Expected");
+            return node;
+        }
+
+
+        #endregion
+
+        #region Expressions
+        private Node Expression()
         {
             var type = Type();
             Node node = null;
@@ -178,28 +198,16 @@ namespace Rhyme.Parser
                         expr = Expression();
                     }
 
-                    node = new Node.BindingDeclaration(new Declaration(type, identifier_token.Lexeme), expr);
+                    node = new Node.BindingDeclaration(new Declaration(type, identifier_token), expr);
                 }
                 else    // Invalid type, it's an expression statement.
                 {
-                    node = Expression();
+                    node = Assignment();
                 }
 
             }
 
-            Consume(TokenType.Semicolon, "';' Expected");
-
-
             return node;
-        }
-
-
-        #endregion
-
-        #region Expressions
-        private Node Expression()
-        {
-            return Assignment();
         }
 
         private Node If()
@@ -305,6 +313,9 @@ namespace Rhyme.Parser
                 return new Node.Binding(_current.Previous.Value);
 
             if (Match(TokenType.Integer))
+                return new Node.Literal(_current.Previous.Value);
+
+            if (Match(TokenType.String))
                 return new Node.Literal(_current.Previous.Value);
 
             if (Match(TokenType.LeftParen))
