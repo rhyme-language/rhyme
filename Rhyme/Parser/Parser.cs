@@ -46,7 +46,7 @@ namespace Rhyme.Parser
 
         private bool Match(params TokenType[] types)
         {
-            foreach (TokenType t in type)
+            foreach (TokenType t in types)
             {
                 if (!AtEnd() && _current.Value.Type == t)
                 {
