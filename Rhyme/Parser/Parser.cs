@@ -100,12 +100,12 @@ namespace Rhyme.Parser
                 case TokenType.U16:
                 case TokenType.U32:
                 case TokenType.U64:
-                case TokenType.f32:
-                case TokenType.f64:
+                case TokenType.F32:
+                case TokenType.F64:
                 case TokenType.Str:
                     Advance();
 
-                    returnType = new RhymeType.Primitive(RhymeType.FromToken(type));
+                    returnType = RhymeType.FromToken(type);
                     break;
             }
 
@@ -125,7 +125,7 @@ namespace Rhyme.Parser
 
                 // build the type descriptor
 
-                return new RhymeType.Function(returnType, arguments.Select(a => a.type).ToArray());
+                return new RhymeType.Function(returnType, arguments.Select(a => a.Type).ToArray());
 
             }
 

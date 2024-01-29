@@ -8,30 +8,104 @@ using Rhyme.Scanner;
 
 namespace Rhyme.Parser
 {
-    internal record RhymeType
+    internal abstract class RhymeType
     {
-        internal enum Primitives {
-            Void, U8, U16, U32, U64, I8, I16, I32, I64, F32, F64,
+
+        internal class Function : RhymeType
+        {
+            private readonly RhymeType _returnType;
+            private readonly RhymeType[] _parameters;
+
+            public Function(RhymeType returnType, params RhymeType[] parameters)
+            {
+                _returnType = returnType;
+                _parameters = parameters;
+            }
+
+            public override string ToString() => $"{_returnType}({string.Join<RhymeType>(',', _parameters)})";
+            
+            public static bool operator ==(Function lhs, Function rhs) => lhs.Equals(rhs);
+
+            public static bool operator !=(Function lhs, Function rhs) => !(lhs == rhs);
+
+            public override bool Equals(object obj)
+            {
+                if (obj is not Function)
+                    return false;
+
+                return this._returnType == ((Function)obj)._returnType && this._parameters.SequenceEqual(((Function)obj)._parameters);
+            }
         }
-        internal record Primitive(Primitives type) : RhymeType;
-        internal record Function(RhymeType Return, params RhymeType[] Parameters) : RhymeType;
 
-        public static RhymeType NoneType = new RhymeType();
+        internal class Primitive : RhymeType
+        {
+            private readonly string _name;
 
-        public static Primitives FromToken(TokenType type)
+            public Primitive(string name)
+            {
+                _name = name;
+            }
+
+            public override string ToString() => _name;
+        }
+
+        internal class Numeric : Primitive
+        {
+           
+            internal enum NumericKind
+            {
+                U8, U16, U32, U64, I8, I16, I32, I64, F32, F64,     
+            }
+            public static bool operator >(Numeric rhs, Numeric lhs)
+            {
+                return rhs._kind > lhs._kind;
+            }
+
+            public static bool operator <(Numeric rhs, Numeric lhs)
+            {
+                return lhs._kind < rhs._kind;
+            }
+
+            public static Numeric Max(Numeric lhs, Numeric rhs) => rhs._kind > lhs._kind ? rhs : lhs;
+
+            private NumericKind _kind;
+            public Numeric(string name, NumericKind kind) : base(name) { _kind = kind; }
+        }
+        public static RhymeType NoneType = new Primitive("<none>");
+
+        public static RhymeType Void = new Primitive("void");
+
+        public static RhymeType U8  = new Numeric("u8", Numeric.NumericKind.U8);
+        public static RhymeType U16 = new Numeric("u16", Numeric.NumericKind.U16);
+        public static RhymeType U32 = new Numeric("u32", Numeric.NumericKind.U32);
+        public static RhymeType U64 = new Numeric("u64", Numeric.NumericKind.U64);
+        public static RhymeType I8  = new Numeric("i8", Numeric.NumericKind.I8);
+        public static RhymeType I16 = new Numeric("i16", Numeric.NumericKind.I16);
+        public static RhymeType I32 = new Numeric("i32", Numeric.NumericKind.I32);
+        public static RhymeType I64 = new Numeric("i64", Numeric.NumericKind.I64);
+        public static RhymeType F32 = new Numeric("f32", Numeric.NumericKind.F32);
+        public static RhymeType F64 = new Numeric("f64", Numeric.NumericKind.F64);
+
+        public static RhymeType Str = new Primitive("str");
+
+    
+        public static RhymeType FromToken(TokenType type)
         {
             switch(type)
             {
-                case TokenType.Void: return Primitives.Void;
-                case TokenType.U8:  return Primitives.U8;
-                case TokenType.U16: return Primitives.U16;
-                case TokenType.U32: return Primitives.U32;
-                case TokenType.U64: return Primitives.U64;
-                case TokenType.I8:  return Primitives.I8;
-                case TokenType.I16: return Primitives.I16;
-                case TokenType.I32: return Primitives.I32;
-                case TokenType.I64: return Primitives.I64;
-                default : return Primitives.Void;
+                case TokenType.Void: return Void;
+                case TokenType.U8:  return U8;
+                case TokenType.U16: return U16;
+                case TokenType.U32: return U32;
+                case TokenType.U64: return U64;
+                case TokenType.I8:  return I8;
+                case TokenType.I16: return I16;
+                case TokenType.I32: return I32;
+                case TokenType.I64: return I64;
+                case TokenType.F32: return F32;
+                case TokenType.F64: return F64;
+                case TokenType.Str: return Str;
+                default : return Void;
             };
         }
     }

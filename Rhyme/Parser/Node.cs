@@ -8,7 +8,7 @@ using Rhyme.Scanner;
 
 namespace Rhyme.Parser
 {
-    internal record Declaration(RhymeType type, Token identifier);
+    internal record Declaration(RhymeType Type, Token Identifier);
     
     /// <summary>
     /// Represents a node in an abstract syntax tree
@@ -40,7 +40,7 @@ namespace Rhyme.Parser
         {
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
-        public record Literal(Token Value) : Node
+        public record Literal(Token ValueToken) : Node
         {
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
@@ -62,7 +62,7 @@ namespace Rhyme.Parser
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record BindingDeclaration(Declaration declaration, Node expression) : Node
+        public record BindingDeclaration(Declaration Declaration, Node expression) : Node
         {
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 

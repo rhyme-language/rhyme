@@ -14,11 +14,25 @@ namespace Rhyme.Resolver
         public bool HadError { get; private set; }
 
         public IReadOnlyCollection<PassError> Errors { get; private set; }
+        List<PassError> _errors = new List<PassError>();
+
+        void Error(Token error_token, string message)
+        {
+            Error(error_token.Line, error_token.Start, error_token.Lexeme.Length, message);
+        }
+        void Error(int line, int start, int length, string message)
+        {
+            HadError = true;
+            _errors.Add(new PassError(line, start, length, message));
+        }
 
         SymbolTable _symbolTable = new SymbolTable();
 
+
         public SymbolTable Resolve(Node.CompilationUnit program)
         {
+            Errors = _errors;
+
             // Global scope
             _symbolTable.StartScope();
 
@@ -34,7 +48,8 @@ namespace Rhyme.Resolver
 
         void Bind(Declaration declaration)
         {
-            _symbolTable.Define(declaration);
+            if (!_symbolTable.Define(declaration))
+                Error(declaration.Identifier, $"'{declaration.Identifier.Lexeme}' is already defined in this scope");
         }
 
         public object Visit(Node.Literal literalExpr)
@@ -66,7 +81,7 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.BindingDeclaration bindingDecl)
         {
-            Bind(bindingDecl.declaration);
+            Bind(bindingDecl.Declaration);
             ResolveNode(bindingDecl.expression);
             return null;
         }

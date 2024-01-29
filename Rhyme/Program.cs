@@ -7,12 +7,15 @@
 #define DEBUG_TOKENS
 #define PARSER
 #define RESOLVER
+#define TYPE_CHECKER
 
 using System.Diagnostics;
 
+using Rhyme;
 using Rhyme.Scanner;
 using Rhyme.Parser;
 using Rhyme.Resolver;
+using Rhyme.TypeChecker;
 
 var source = File.ReadAllText("code.rhm");
 
@@ -28,32 +31,37 @@ foreach (var token in scanner.Scan())
 }
 #endif
 
+string[] lines = source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+void ReportError(PassError error)
+{
+    var accum_start = 0;
+    for (int i = 1; i < error.Line; i++)
+    {
+        accum_start += lines[i - 1].Length;
+
+        // Because it counts \n\r (Needs investigation)
+        accum_start += 2;
+    }
+    var relative_start = error.Start - accum_start;
+
+    Console.ForegroundColor = ConsoleColor.Yellow;
+    Console.WriteLine($"ERR: [{error.Line}]: {error.Message}: ");
+    Console.ResetColor();
+    Console.WriteLine(lines[error.Line - 1]);
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine(new string(' ', relative_start) + '^' + new string('~', error.Length - 1));
+    Console.ResetColor();
+    Console.WriteLine();
+}
+
 if (scanner.HadError)
 {
-    string[] lines = source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
     foreach (var error in scanner.Errors)
     {
-        var accum_start = 0;
-        for (int i = 1; i < error.Line; i++)
-        {
-            accum_start += lines[i - 1].Length;
-
-            // Because it counts \n\r (Needs investigation)
-            accum_start += 2; 
-        }
-        var relative_start = error.Start - accum_start;
-
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"/!\\ [{error.Line}]: {error.Message}: ");
-        Console.ResetColor();
-        Console.WriteLine(lines[error.Line - 1]);
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine(new string(' ', relative_start) + '^' + new string('~', error.Length - 1));
-        Console.ResetColor();
+        ReportError(error);
     }
-
-    Console.WriteLine();
     return;
 }
 
@@ -62,17 +70,42 @@ Parser parser = new Parser(scanner.Scan());
 var root = parser.Parse();
 
 if (parser.HadError)
+{
+    foreach (var error in parser.Errors)
+    {
+        ReportError(error);
+    }
     return;
+}
 #endif
 
 #if RESOLVER
 Resolver resolver = new Resolver();
-resolver.Resolve(root);
+var symbol_table = resolver.Resolve(root);
 
 if (resolver.HadError)
+{
+    foreach (var error in resolver.Errors)
+    {
+        ReportError(error);
+    }
     return;
-
+}
 #endif
 
+#if TYPE_CHECKER
+TypeChecker type_checker = new TypeChecker(symbol_table);
+type_checker.Check(root);
+
+if (type_checker.HadError)
+{
+    foreach (var error in type_checker.Errors)
+    {
+        ReportError(error);
+    }
+    return;
+}
+
+#endif
 stopwatch.Stop();
 Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");

@@ -28,10 +28,10 @@ namespace Rhyme.Scanner
 
         // Types
         Void,
-        U8, U16, U32, U64, I8, I16, I32, I64, f32, f64, Str,
+        U8, U16, U32, U64, I8, I16, I32, I64, F32, F64, Str,
         None,
     }
 
-    internal record Token(string Lexeme, TokenType Type, int Line, object Value = null);
+    internal record Token(string Lexeme, TokenType Type, int Line, int Start, object Value = null);
 
 }

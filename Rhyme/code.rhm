@@ -1,3 +1,4 @@
 ﻿void() main = {
-	u32 x = 4;
+    str my_var = "hello world";
+    u32 my_var = 3;
 };
