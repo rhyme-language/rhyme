@@ -155,7 +155,10 @@ namespace Rhyme.TypeChecker
 
         public RhymeType Visit(Node.Binding binding)
         {
-            throw new NotImplementedException();
+            if (_symbolTable.Contains(binding.Identifier))
+                return _symbolTable[binding.Identifier];
+            else
+                return RhymeType.NoneType;
         }
 
         public RhymeType Visit(Node.Grouping grouping)

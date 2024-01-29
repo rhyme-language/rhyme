@@ -234,6 +234,8 @@ namespace Rhyme.Scanner
             {
                 while (!AtEnd && !Match('\n', false))
                     Advance();
+
+                _line++;
             }
 
 

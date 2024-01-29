@@ -161,17 +161,6 @@ namespace Rhyme.Parser
 
         private Node Statement()
         {
-            var node = Expression();
-            Consume(TokenType.Semicolon, "';' Expected");
-            return node;
-        }
-
-
-        #endregion
-
-        #region Expressions
-        private Node Expression()
-        {
             var type = Type();
             Node node = null;
 
@@ -207,7 +196,18 @@ namespace Rhyme.Parser
 
             }
 
+
+            Consume(TokenType.Semicolon, "';' Expected");
             return node;
+        }
+
+
+        #endregion
+
+        #region Expressions
+        private Node Expression()
+        {
+            return Assignment();
         }
 
         private Node If()

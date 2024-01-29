@@ -16,11 +16,28 @@ namespace Rhyme.Resolver
 
         public Scope Enclosing { get; private set; }
 
-        public bool Contains(Token token)
-        {
-            return _symbols.ContainsKey(token.Lexeme);
+        public bool Contains(Token token) {
+            if (_symbols.ContainsKey(token.Lexeme))
+                return true;
+
+            if (Enclosing != null) 
+                return Enclosing.Contains(token);
+
+            return false;
         }
 
+
+        RhymeType get(Token token)
+        {
+            if (_symbols.ContainsKey(token.Lexeme))
+                return _symbols[token.Lexeme];
+
+            if (Enclosing != null) 
+                return Enclosing.get(token);
+                
+            return RhymeType.NoneType;
+           
+        }
         public Scope(Scope enclosingScope = null) { Enclosing = enclosingScope; }
 
         public bool Define(Token token, RhymeType type)
@@ -35,10 +52,10 @@ namespace Rhyme.Resolver
         }
 
 
-        public RhymeType this[string identifier]
+        public RhymeType this[Token identifier]
         {
-            get { return _symbols[identifier]; }
-            set { _symbols[identifier] =  value; }
+            get { return get(identifier); }
+            set { _symbols[identifier.Lexeme] =  value; }
         }
 
     }
@@ -47,8 +64,8 @@ namespace Rhyme.Resolver
     {
         public void OpenScope();
         public void CloseScope();
-
         public void Reset();
+        public bool Contains(Token identifier);
         public RhymeType this[Token identifier] { get; }
     }
     internal class SymbolTable :  IReadOnlySymbolTable
@@ -93,10 +110,14 @@ namespace Rhyme.Resolver
             return _current.Define(declaration.Identifier, declaration.Type);
         }
 
+        public bool Contains(Token identifier)
+        {
+            return _current.Contains(identifier);
+        }
         public RhymeType this[Token identifier]
         {
-            get => _scopes[_index][identifier.Lexeme];
-            set => _scopes[_index][identifier.Lexeme] = value;
+            get => _scopes[_index][identifier];
+            set => _scopes[_index][identifier] = value;
         }
     }
 }

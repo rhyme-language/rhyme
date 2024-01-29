@@ -59,7 +59,7 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.Binary binaryExpr)
         {
-            throw new NotImplementedException();
+            return null;
         }
 
         public object Visit(Node.Unary unaryExpr)
@@ -98,6 +98,8 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.Binding binding)
         {
+            if (!_symbolTable.Contains(binding.Identifier))
+                Error(binding.Identifier, $"'{binding.Identifier.Lexeme}' is not defined in this scope");
 
             return null;
         }
