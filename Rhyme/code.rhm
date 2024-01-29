@@ -1,6 +1,3 @@
 ﻿void() main = {
-    str my_var = "hello world";
-    {
-        u32 int = my_var;
-    };
+    u32 a = 1 + "test";
 };

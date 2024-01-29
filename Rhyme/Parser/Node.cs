@@ -45,7 +45,7 @@ namespace Rhyme.Parser
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record Binary(Node left, Token op, Node right) : Node
+        public record Binary(Node Left, Token Op, Node Right) : Node
         {
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 

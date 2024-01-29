@@ -61,7 +61,17 @@ namespace Rhyme.TypeChecker
 
         public RhymeType Visit(Node.Binary binaryExpr)
         {
-            throw new NotImplementedException();
+            var lhs = check(binaryExpr.Left);
+            var rhs = check(binaryExpr.Right);
+
+            var eval_result = TypeEvaluate(lhs, binaryExpr.Op.Type, rhs);
+
+            if (eval_result.valid)
+                return eval_result.result;
+            else
+                Error(binaryExpr.Op, $"Can't apply operator '{binaryExpr.Op.Lexeme}' on types '{lhs}' and '{rhs}'");
+
+            return RhymeType.NoneType;
         }
 
         public RhymeType Visit(Node.Unary unaryExpr)
@@ -84,11 +94,15 @@ namespace Rhyme.TypeChecker
         public RhymeType Visit(Node.BindingDeclaration bindingDecl)
         {
             var rhs_type = check(bindingDecl.expression);
+
+            if (rhs_type == RhymeType.NoneType)
+                return RhymeType.NoneType;
+
             var decl = bindingDecl.Declaration;
             var decl_type = _symbolTable[decl.Identifier];
             if (!decl_type.Equals(rhs_type)){
                 Error(decl.Identifier.Line, decl.Identifier.Start, decl.Identifier.Lexeme.Length,
-                    $"Can not implicitly convert type '{rhs_type}' to type '{decl_type}'");
+                    $"Can not implicitly convert type '{rhs_type}' to a binding of type '{decl_type}'");
             }
             
             return RhymeType.NoneType;
@@ -112,7 +126,7 @@ namespace Rhyme.TypeChecker
         {
             var rhs = check(assignment.expression);
             var lhs = _symbolTable[assignment.binding];
-            var eval_result = TypeEvaluate(rhs, Operator.Assignment, lhs);
+            var eval_result = TypeEvaluate(rhs, TokenType.Equal, lhs);
 
             if (eval_result.valid)
             {
@@ -127,27 +141,46 @@ namespace Rhyme.TypeChecker
         }
 
         
-        (bool valid, RhymeType result) TypeEvaluate(RhymeType lhs, Operator type, RhymeType rhs)
+        (bool valid, RhymeType result) TypeEvaluate(RhymeType lhs, TokenType operatorToken, RhymeType rhs)
         {
-            if(type == Operator.Assignment)
+            switch (operatorToken)
             {
-                if (rhs == lhs)
-                    return (true, rhs);
+                // Arithmetic
+                case TokenType.Plus:
+                case TokenType.Minus:
+                case TokenType.Asterisk:
+                case TokenType.Slash:
+                case TokenType.Percent:
+                    if (lhs is not RhymeType.Numeric || rhs is not RhymeType.Numeric)
+                        return (false, RhymeType.NoneType);
 
-                if(lhs is RhymeType.Primitive && rhs is RhymeType.Primitive)
-                {
-                    if(lhs is RhymeType.Numeric && rhs is RhymeType.Numeric)
+                    if (lhs is RhymeType.Numeric && rhs is RhymeType.Numeric)
+                        return (true, RhymeType.Numeric.Max((RhymeType.Numeric)lhs, (RhymeType.Numeric)rhs));
+
+                    break;
+
+                // Assignment
+                case TokenType.Equal:
+                    if (rhs == lhs)
+                        return (true, rhs);
+
+                    if (lhs is RhymeType.Primitive && rhs is RhymeType.Primitive)
                     {
-                        // Only assignment from lower numeric types to higher ones is allowed (e.g. u16 to f64)
+                        if (lhs is RhymeType.Numeric && rhs is RhymeType.Numeric)
+                        {
+                            // Only assignment from lower numeric types to higher ones is allowed (e.g. u16 to f64)
 
-                        bool valid = (RhymeType.Numeric)lhs > (RhymeType.Numeric)rhs;
+                            bool valid = (RhymeType.Numeric)lhs > (RhymeType.Numeric)rhs;
 
-                        if (valid)
-                            return (valid, RhymeType.Numeric.Max((RhymeType.Numeric)lhs, (RhymeType.Numeric)rhs));
-                        else
-                            return (false, RhymeType.NoneType);
+                            if (valid)
+                                return (valid, RhymeType.Numeric.Max((RhymeType.Numeric)lhs, (RhymeType.Numeric)rhs));
+                            else
+                                return (false, RhymeType.NoneType);
+                        }
                     }
-                }
+                    break;
+                default:
+                    return (false, RhymeType.NoneType);
             }
 
             return (false, RhymeType.NoneType);

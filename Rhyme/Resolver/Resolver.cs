@@ -59,6 +59,8 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.Binary binaryExpr)
         {
+            ResolveNode(binaryExpr.Left);
+            ResolveNode(binaryExpr.Right);
             return null;
         }
 
