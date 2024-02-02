@@ -124,8 +124,12 @@ namespace Rhyme.TypeChecker
 
         public RhymeType Visit(Node.Assignment assignment)
         {
-            var rhs = check(assignment.expression);
-            var lhs = _symbolTable[assignment.binding];
+            var rhs = check(assignment.Expression);
+
+            if (assignment.Assignee is not Node.Binding)
+                throw new Exception("Unassignable target.");
+
+            var lhs = _symbolTable[((Node.Binding)assignment.Assignee).Identifier];
             var eval_result = TypeEvaluate(rhs, TokenType.Equal, lhs);
 
             if (eval_result.valid)
@@ -134,7 +138,7 @@ namespace Rhyme.TypeChecker
             }
             else
             {
-                Error(assignment.binding,
+                Error(((Node.Binding)assignment.Assignee).Identifier,
                     $"Can't implicitly assign value of type '{rhs}' to a binding of type '{lhs}'");
                 return RhymeType.NoneType;
             }
@@ -206,6 +210,32 @@ namespace Rhyme.TypeChecker
                 check(unit);
             }
             return RhymeType.NoneType;
+        }
+
+        public RhymeType Visit(Node.FunctionCall callExpr)
+        {
+            var type = check(callExpr.Callee);
+
+            if(type is RhymeType.Function)
+            {
+                var func_type = (RhymeType.Function)type;
+
+                if (func_type.Parameters.Length == callExpr.Args.Length)
+                {
+                    for (int i = 0; i < func_type.Parameters.Length; i++)
+                    {
+                        var arg_type = check(callExpr.Args[i]);
+
+                        if (arg_type != func_type.Parameters[i])
+                        {
+                            throw new Exception($"Wrong argument type from {arg_type} to {func_type.Parameters[i]}");
+                        }
+                    }
+                    return func_type.ReturnType;
+                }
+                throw new Exception($"{callExpr.Args.Length} arguments passed to the function and expects {func_type.Parameters.Length}");
+            }
+            throw new Exception("Invalid call");
         }
     }
 }

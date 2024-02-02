@@ -28,10 +28,20 @@ namespace Rhyme.Resolver
 
         SymbolTable _symbolTable = new SymbolTable();
 
-
-        public SymbolTable Resolve(Node.CompilationUnit program)
+        public Resolver()
         {
             Errors = _errors;
+
+            // For now we will have a mini environment for holding some globals that we will need
+            // through the code until we make our own standard library.
+            // dprint (debug print) a temporal function for printing to console stream.
+            _symbolTable.Define(new Declaration(
+                new RhymeType.Function(RhymeType.Void, RhymeType.Str),
+                new Token("dprint", TokenType.Identifier, 0, 0, 0)
+            ));
+        }
+        public SymbolTable Resolve(Node.CompilationUnit program)
+        {
 
             // Global scope
             _symbolTable.StartScope();
@@ -117,6 +127,12 @@ namespace Rhyme.Resolver
             {
                 ResolveNode(unit);
             }
+            return null;
+        }
+
+        public object Visit(Node.FunctionCall callExpr)
+        {
+            ResolveNode(callExpr.Callee);
             return null;
         }
     }

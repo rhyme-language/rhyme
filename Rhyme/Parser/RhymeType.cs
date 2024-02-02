@@ -13,16 +13,16 @@ namespace Rhyme.Parser
 
         internal class Function : RhymeType
         {
-            private readonly RhymeType _returnType;
-            private readonly RhymeType[] _parameters;
+            public readonly RhymeType ReturnType;
+            public readonly RhymeType[] Parameters;
 
             public Function(RhymeType returnType, params RhymeType[] parameters)
             {
-                _returnType = returnType;
-                _parameters = parameters;
+                ReturnType = returnType;
+                Parameters = parameters;
             }
 
-            public override string ToString() => $"{_returnType}({string.Join<RhymeType>(',', _parameters)})";
+            public override string ToString() => $"{ReturnType}({string.Join<RhymeType>(',', Parameters)})";
             
             public static bool operator ==(Function lhs, Function rhs) => lhs.Equals(rhs);
 
@@ -33,7 +33,7 @@ namespace Rhyme.Parser
                 if (obj is not Function)
                     return false;
 
-                return this._returnType == ((Function)obj)._returnType && this._parameters.SequenceEqual(((Function)obj)._parameters);
+                return this.ReturnType == ((Function)obj).ReturnType && this.Parameters.SequenceEqual(((Function)obj).Parameters);
             }
         }
 
@@ -49,6 +49,17 @@ namespace Rhyme.Parser
             public override string ToString() => _name;
         }
 
+        internal class Reference : RhymeType
+        {
+            public readonly string Name;
+
+            public Reference(string name)
+            {
+                Name = name;
+            }
+            public override string ToString() => Name;
+
+        }
         internal class Numeric : Primitive
         {
            
@@ -89,11 +100,12 @@ namespace Rhyme.Parser
         public static RhymeType Str = new Primitive("str");
 
     
-        public static RhymeType FromToken(TokenType type)
+        public static RhymeType FromToken(Token token)
         {
-            switch(type)
+            switch(token.Type)
             {
                 case TokenType.Void: return Void;
+
                 case TokenType.U8:  return U8;
                 case TokenType.U16: return U16;
                 case TokenType.U32: return U32;
@@ -105,7 +117,9 @@ namespace Rhyme.Parser
                 case TokenType.F32: return F32;
                 case TokenType.F64: return F64;
                 case TokenType.Str: return Str;
-                default : return Void;
+
+                case TokenType.Identifier: return new Reference(token.Lexeme);
+                default : return RhymeType.NoneType;
             };
         }
     }
