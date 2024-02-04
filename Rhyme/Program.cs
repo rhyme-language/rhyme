@@ -4,10 +4,11 @@
     Author: Zeyad Ahmed
  */
 
-#define DEBUG_TOKENS
+//#define DEBUG_TOKENS
 #define PARSER
 #define RESOLVER
 #define TYPE_CHECKER
+#define CODE_GENERATOR
 
 using System.Diagnostics;
 
@@ -16,6 +17,7 @@ using Rhyme.Scanner;
 using Rhyme.Parser;
 using Rhyme.Resolver;
 using Rhyme.TypeChecker;
+using Rhyme.CodeGenerator;
 
 var source = File.ReadAllText("code.rhm");
 
@@ -107,5 +109,29 @@ if (type_checker.HadError)
 }
 
 #endif
+
+#if CODE_GENERATOR
+CodeGenerator code_generator = new CodeGenerator(root, symbol_table);
+var ll_code = code_generator.Generate();
+
+if (code_generator.HadError)
+{
+    foreach (var error in code_generator.Errors)
+    {
+        ReportError(error);
+    }
+    return;
+}
+#endif
+
+Console.WriteLine(ll_code);
+File.WriteAllText("output.ll", ll_code);
+var clang_process = Process.Start(new ProcessStartInfo("clang", "output.ll -o program.exe"));
+clang_process.WaitForExit();
+
 stopwatch.Stop();
+Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
 Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
+
+Console.WriteLine("Running...\n");
+Process.Start("program.exe");

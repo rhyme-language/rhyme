@@ -39,6 +39,11 @@ namespace Rhyme.Resolver
                 new RhymeType.Function(RhymeType.Void, RhymeType.Str),
                 new Token("dprint", TokenType.Identifier, 0, 0, 0)
             ));
+
+            _symbolTable.Define(new Declaration(
+                new RhymeType.Function(RhymeType.Void, RhymeType.U32),
+                new Token("dprint_int", TokenType.Identifier, 0, 0, 0)
+            ));
         }
         public SymbolTable Resolve(Node.CompilationUnit program)
         {

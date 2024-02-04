@@ -49,14 +49,17 @@ namespace Rhyme.TypeChecker
         }
         public RhymeType Visit(Node.Literal literalExpr)
         {
-            if (literalExpr.ValueToken.Value is int)
-                return RhymeType.U32;
+            switch (literalExpr.ValueToken.Type)
+            {
+                case TokenType.Integer:
+                    return RhymeType.U32;
 
-            if (literalExpr.ValueToken.Value is string)
-                return RhymeType.Str;
+                case TokenType.String:
+                    return RhymeType.Str;
 
-            
-            return RhymeType.NoneType;
+                default:
+                    return RhymeType.NoneType;
+            }
         }
 
         public RhymeType Visit(Node.Binary binaryExpr)

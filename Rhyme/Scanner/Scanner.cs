@@ -292,7 +292,7 @@ namespace Rhyme.Scanner
                 Advance();
 
             _pos--;
-            return new Token(_source.Substring(start, _pos - start + 1), TokenType.Integer, _line, start, int.Parse(_source.Substring(start, _pos - start + 1)));
+            return new Token(_source.Substring(start, _pos - start + 1), TokenType.Integer, _line, start, _pos, int.Parse(_source.Substring(start, _pos - start + 1)));
         }
         #endregion
 

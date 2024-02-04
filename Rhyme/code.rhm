@@ -1,3 +1,6 @@
 ﻿void() main = {
-    dprint(1);
+    dprint("50 + 66 = ");
+    dprint_int(50 + 66);
 };
+
+

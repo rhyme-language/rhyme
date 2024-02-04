@@ -14,6 +14,7 @@ namespace Rhyme.Parser
         public static Position FromToken(Token token) => new Position(token.Line, token.Start, token.End);
     };
 
+
     /// <summary>
     /// Represents a node in an abstract syntax tree
     /// </summary>
@@ -46,6 +47,7 @@ namespace Rhyme.Parser
         {
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
+
         public record Literal(Token ValueToken, Position Position) : Node
         {
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
