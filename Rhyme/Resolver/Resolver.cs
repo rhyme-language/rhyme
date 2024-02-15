@@ -14,11 +14,35 @@ namespace Rhyme.Resolver
         public bool HadError { get; private set; }
 
         public IReadOnlyCollection<PassError> Errors { get; private set; }
+        List<PassError> _errors = new List<PassError>();
+
+        void Error(Token error_token, string message)
+        {
+            Error(error_token.Line, error_token.Start, error_token.Lexeme.Length, message);
+        }
+        void Error(int line, int start, int length, string message)
+        {
+            HadError = true;
+            _errors.Add(new PassError(line, start, length, message));
+        }
 
         SymbolTable _symbolTable = new SymbolTable();
 
+        public Resolver()
+        {
+            Errors = _errors;
+
+            // For now we will have a mini environment for holding some globals that we will need
+            // through the code until we make our own standard library.
+            // dprint (debug print) a temporal function for printing to console stream.
+            _symbolTable.Define(new Declaration(
+                new RhymeType.Function(RhymeType.Void, RhymeType.Str),
+                new Token("dprint", TokenType.Identifier, 0, 0, 0)
+            ));
+        }
         public SymbolTable Resolve(Node.CompilationUnit program)
         {
+
             // Global scope
             _symbolTable.StartScope();
 
@@ -34,7 +58,8 @@ namespace Rhyme.Resolver
 
         void Bind(Declaration declaration)
         {
-            _symbolTable.Define(declaration);
+            if (!_symbolTable.Define(declaration))
+                Error(declaration.Identifier, $"'{declaration.Identifier.Lexeme}' is already defined in this scope");
         }
 
         public object Visit(Node.Literal literalExpr)
@@ -44,7 +69,9 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.Binary binaryExpr)
         {
-            throw new NotImplementedException();
+            ResolveNode(binaryExpr.Left);
+            ResolveNode(binaryExpr.Right);
+            return null;
         }
 
         public object Visit(Node.Unary unaryExpr)
@@ -66,7 +93,7 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.BindingDeclaration bindingDecl)
         {
-            Bind(bindingDecl.declaration);
+            Bind(bindingDecl.Declaration);
             ResolveNode(bindingDecl.expression);
             return null;
         }
@@ -83,6 +110,8 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.Binding binding)
         {
+            if (!_symbolTable.Contains(binding.Identifier))
+                Error(binding.Identifier, $"'{binding.Identifier.Lexeme}' is not defined in this scope");
 
             return null;
         }
@@ -98,6 +127,12 @@ namespace Rhyme.Resolver
             {
                 ResolveNode(unit);
             }
+            return null;
+        }
+
+        public object Visit(Node.FunctionCall callExpr)
+        {
+            ResolveNode(callExpr.Callee);
             return null;
         }
     }

@@ -1,3 +1,3 @@
 ﻿void() main = {
-	u32 x = 4;
+    dprint(1);
 };

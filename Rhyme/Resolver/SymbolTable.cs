@@ -12,22 +12,39 @@ namespace Rhyme.Resolver
 
     internal class Scope
     {
-        Dictionary<Token, RhymeType> _symbols = new Dictionary<Token, RhymeType>();
+        Dictionary<string, RhymeType> _symbols = new Dictionary<string, RhymeType>();
 
         public Scope Enclosing { get; private set; }
 
-        public bool Contains(Token token)
-        {
-            return _symbols.ContainsKey(token);
+        public bool Contains(Token token) {
+            if (_symbols.ContainsKey(token.Lexeme))
+                return true;
+
+            if (Enclosing != null) 
+                return Enclosing.Contains(token);
+
+            return false;
         }
 
+
+        RhymeType get(Token token)
+        {
+            if (_symbols.ContainsKey(token.Lexeme))
+                return _symbols[token.Lexeme];
+
+            if (Enclosing != null) 
+                return Enclosing.get(token);
+                
+            return RhymeType.NoneType;
+           
+        }
         public Scope(Scope enclosingScope = null) { Enclosing = enclosingScope; }
 
         public bool Define(Token token, RhymeType type)
         {
-            if (!_symbols.ContainsKey(token))
+            if (!_symbols.ContainsKey(token.Lexeme))
             {
-                _symbols.Add(token, type);
+                _symbols.Add(token.Lexeme, type);
                 return true;
             }
 
@@ -37,17 +54,28 @@ namespace Rhyme.Resolver
 
         public RhymeType this[Token identifier]
         {
-            get { return _symbols[identifier]; }
-            set { _symbols[identifier] =  value; }
+            get { return get(identifier); }
+            set { _symbols[identifier.Lexeme] =  value; }
         }
 
     }
-    internal class SymbolTable
+
+    internal interface IReadOnlySymbolTable
+    {
+        public void OpenScope();
+        public void CloseScope();
+        public void Reset();
+        public bool Contains(Token identifier);
+        public RhymeType this[Token identifier] { get; }
+    }
+    internal class SymbolTable :  IReadOnlySymbolTable
     {
         Scope _current = new Scope();
 
         Stack<Scope> _scopeStack = new Stack<Scope>();
         List<Scope> _scopes = new List<Scope>();
+
+        int _index = 0;
 
         public void StartScope()
         {
@@ -62,15 +90,34 @@ namespace Rhyme.Resolver
             _current = _scopeStack.Pop();
         }
 
-        public void Define(Declaration declaration)
+        public void OpenScope()
         {
-            _current.Define(declaration.identifier, declaration.type);
+            _index++;
         }
 
+        public void CloseScope()
+        {
+            _index--;
+        }
+
+        public void Reset()
+        {
+            _index = 0; 
+        }
+
+        public bool Define(Declaration declaration)
+        {
+            return _current.Define(declaration.Identifier, declaration.Type);
+        }
+
+        public bool Contains(Token identifier)
+        {
+            return _current.Contains(identifier);
+        }
         public RhymeType this[Token identifier]
         {
-            get => _current[identifier];
-            set => _current[identifier] = value;
+            get => _scopes[_index][identifier];
+            set => _scopes[_index][identifier] = value;
         }
     }
 }
