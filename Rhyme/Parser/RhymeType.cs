@@ -29,7 +29,7 @@ namespace Rhyme.Parser
             public static bool operator !=(Function lhs, Function rhs) => !(lhs == rhs);
 
             public override bool Equals(object obj)
-            {
+            {             
                 if (obj is not Function)
                     return false;
 
@@ -82,22 +82,22 @@ namespace Rhyme.Parser
             private NumericKind _kind;
             public Numeric(string name, NumericKind kind) : base(name) { _kind = kind; }
         }
-        public static RhymeType NoneType = new Primitive("<none>");
-
-        public static RhymeType Void = new Primitive("void");
-
-        public static RhymeType U8  = new Numeric("u8", Numeric.NumericKind.U8);
-        public static RhymeType U16 = new Numeric("u16", Numeric.NumericKind.U16);
-        public static RhymeType U32 = new Numeric("u32", Numeric.NumericKind.U32);
-        public static RhymeType U64 = new Numeric("u64", Numeric.NumericKind.U64);
-        public static RhymeType I8  = new Numeric("i8", Numeric.NumericKind.I8);
-        public static RhymeType I16 = new Numeric("i16", Numeric.NumericKind.I16);
-        public static RhymeType I32 = new Numeric("i32", Numeric.NumericKind.I32);
-        public static RhymeType I64 = new Numeric("i64", Numeric.NumericKind.I64);
-        public static RhymeType F32 = new Numeric("f32", Numeric.NumericKind.F32);
-        public static RhymeType F64 = new Numeric("f64", Numeric.NumericKind.F64);
-
-        public static RhymeType Str = new Primitive("str");
+        public static readonly RhymeType NoneType = new Primitive("<none>");
+                       
+        public static readonly RhymeType Void = new Primitive("void");
+                       
+        public static readonly RhymeType U8  = new Numeric("u8", Numeric.NumericKind.U8);
+        public static readonly RhymeType U16 = new Numeric("u16", Numeric.NumericKind.U16);
+        public static readonly RhymeType U32 = new Numeric("u32", Numeric.NumericKind.U32);
+        public static readonly RhymeType U64 = new Numeric("u64", Numeric.NumericKind.U64);
+        public static readonly RhymeType I8  = new Numeric("i8", Numeric.NumericKind.I8);
+        public static readonly RhymeType I16 = new Numeric("i16", Numeric.NumericKind.I16);
+        public static readonly RhymeType I32 = new Numeric("i32", Numeric.NumericKind.I32);
+        public static readonly RhymeType I64 = new Numeric("i64", Numeric.NumericKind.I64);
+        public static readonly RhymeType F32 = new Numeric("f32", Numeric.NumericKind.F32);
+        public static readonly RhymeType F64 = new Numeric("f64", Numeric.NumericKind.F64);
+                       
+        public static readonly RhymeType Str = new Primitive("str");
 
     
         public static RhymeType FromToken(Token token)

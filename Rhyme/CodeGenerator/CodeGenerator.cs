@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 using Rhyme.Scanner;
 using Rhyme.Parser;
+using Rhyme.Resolver;
 
 using LLVMSharp.Interop;
-using Rhyme.Resolver;
 
 namespace Rhyme.CodeGenerator
 {
@@ -24,58 +24,39 @@ namespace Rhyme.CodeGenerator
 
         Dictionary<string, (LLVMTypeRef typeRef, LLVMValueRef valueRef)> _functions = new Dictionary<string, (LLVMTypeRef typeRef, LLVMValueRef valueRef)>();
 
+        Dictionary<string, LLVMValueRef> _locals = new Dictionary<string, LLVMValueRef>();
+        Dictionary<string, LLVMValueRef> _globals = new Dictionary<string, LLVMValueRef>();
+
         LLVMModuleRef _module;
         LLVMBuilderRef _builder;
 
-        #region Helpers
-        void DefineFunction(Node.BindingDeclaration functionDefinition)
+        Dictionary<RhymeType, LLVMTypeRef> _rhymeTypeLLVMType = new Dictionary<RhymeType, LLVMTypeRef>()
         {
+            { RhymeType.Void, LLVMTypeRef.Void },
+            { RhymeType.U8, LLVMTypeRef.Int8 },
+            { RhymeType.U16, LLVMTypeRef.Int16 },
+            { RhymeType.U32, LLVMTypeRef.Int32 },
+            { RhymeType.I8, LLVMTypeRef.Int8 },
+            { RhymeType.I16, LLVMTypeRef.Int16 },
+            { RhymeType.I32, LLVMTypeRef.Int32 },
+            { RhymeType.I64, LLVMTypeRef.Int64 },
+        };
 
-        }
-        void DeclareFunction(RhymeType.Function functionDeclaration, string name)
-        {
-            var type = LLVMTypeRef.CreateFunction(
-                LLVMTypeFromRhymeType(functionDeclaration.ReturnType),
-                functionDeclaration.Parameters.Select(p => LLVMTypeFromRhymeType(p)).ToArray()
-            );
 
-            _functions.Add(
-                name,
-                (type, _module.AddFunction(name, type))
-            );
-        }
-        #endregion
-        void DefineBuiltIns()
-        {
-            // external forward declaration for 'puts()'
-            var puts = LLVMTypeRef.CreateFunction(
-                LLVMTypeRef.Int32,
-                new LLVMTypeRef[] { LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0) }
-            );
-            _functions.Add(
-                "puts",
-                (puts, _module.AddFunction("puts", puts))
-            );
+        bool _global = true;
 
-            // external forward declaration for printf()
+      
 
-            var printf = LLVMTypeRef.CreateFunction(
-                LLVMTypeRef.Int32,
-                new[] { LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0) },
-                true
-            );
 
-            _functions.Add(
-                "printf",
-                (printf, _module.AddFunction("printf", printf))
-            );
-        
-        }
+        Dictionary<string, Action<Node.FunctionCall>> _debugBuiltIns = new Dictionary<string, Action<Node.FunctionCall>>();
+
+
         public CodeGenerator(Node.CompilationUnit compilationUnit, IReadOnlySymbolTable symbolTable)
         {
+
             _compilationUnit = compilationUnit;
             _symbolTable = symbolTable;
-
+            _symbolTable.Reset();
         }
 
         public string Generate()
@@ -113,8 +94,6 @@ namespace Rhyme.CodeGenerator
             {
                 case TokenType.Plus:
                     return _builder.BuildAdd(lhs, rhs);
-                    break;
-
             }
             return null;
 
@@ -130,30 +109,18 @@ namespace Rhyme.CodeGenerator
             throw new NotImplementedException();
         }
 
-        Dictionary<RhymeType, LLVMTypeRef> _rhymeTypeLLVMType = new Dictionary<RhymeType, LLVMTypeRef>()
-        {
-            { RhymeType.Void, LLVMTypeRef.Void },
-            { RhymeType.U8, LLVMTypeRef.Int8 },
-            { RhymeType.U16, LLVMTypeRef.Int16 },
-            { RhymeType.U32, LLVMTypeRef.Int32 },
-            { RhymeType.I8, LLVMTypeRef.Int8 },
-            { RhymeType.I16, LLVMTypeRef.Int16 },
-            { RhymeType.I32, LLVMTypeRef.Int32 },
-            { RhymeType.I64, LLVMTypeRef.Int64 },
-        };
-        LLVMTypeRef LLVMTypeFromRhymeType(RhymeType type)
-        {
-            return _rhymeTypeLLVMType[type];
-        }
+
         public object Visit(Node.BindingDeclaration bindingDecl)
         {
             // Functions
-            if(bindingDecl.Declaration.Type is RhymeType.Function)
+            if(bindingDecl.Declaration.Type is RhymeType.Function func_type)
             {
-                var func_type = (RhymeType.Function)bindingDecl.Declaration.Type;
-
+                _global = false;
                 var return_type = LLVMTypeFromRhymeType(func_type.ReturnType);
                 var params_type = func_type.Parameters.Select(f_type => LLVMTypeFromRhymeType(f_type)).ToArray();
+
+                _symbolTable.OpenScope();
+                
                 var function = LLVMTypeRef.CreateFunction(return_type, params_type);
 
                 var func = _module.AddFunction(bindingDecl.Declaration.Identifier.Lexeme, function).AppendBasicBlock("entry");
@@ -164,10 +131,28 @@ namespace Rhyme.CodeGenerator
                     GenerateNode(stmt);
                 }
                 _builder.BuildRetVoid();
+                return null;
+            }
+            
 
-               
+            var identifier = bindingDecl.Declaration.Identifier.Lexeme;
+            var llvm_type = LLVMTypeFromRhymeType(bindingDecl.Declaration.Type);
+
+            if (_global)
+            {
+                var global_var = _module.AddGlobal(llvm_type, identifier);
+
+                if (bindingDecl.expression != null)
+                    global_var.Initializer = (LLVMValueRef)GenerateNode(bindingDecl.expression);
+
+                _globals.Add(identifier, global_var);
+                return null;
+
             }
 
+            _locals.Add(identifier, _builder.BuildAlloca(llvm_type, identifier));
+            
+            _builder.BuildStore((LLVMValueRef)GenerateNode(bindingDecl.expression), _locals[identifier]);
             return null;
         }
 
@@ -181,25 +166,6 @@ namespace Rhyme.CodeGenerator
             throw new NotImplementedException();
         }
 
-
-        Dictionary<string, Action<Node.FunctionCall>> _debugBuiltIns = new Dictionary<string, Action<Node.FunctionCall>>();
-        void RhymeDebugBuiltIns()
-        {
-            _debugBuiltIns.Add("dprint", fc =>
-            {
-                _builder.BuildCall2(_functions["printf"].typeRef, _functions["printf"].valueRef, new[] { (LLVMValueRef)GenerateNode(fc.Args[0]) }, "printf");
-
-            });
-
-            _debugBuiltIns.Add("dprint_int", fc =>
-            {
-                var args = fc.Args.Select(arg => (LLVMValueRef)GenerateNode(arg)).ToList();
-                args.Insert(0, _builder.BuildGlobalStringPtr("%d"));
-
-                _builder.BuildCall2(_functions["printf"].typeRef, _functions["printf"].valueRef, args.ToArray(), "printf");
-            });
-
-        }
 
         public object Visit(Node.FunctionCall callExpr)
         {
@@ -217,7 +183,11 @@ namespace Rhyme.CodeGenerator
 
         public object Visit(Node.Binding binding)
         {
-            return null;
+            return _builder.BuildLoad2(
+                LLVMTypeFromRhymeType(_symbolTable[binding.Identifier]),
+                GetValue(binding.Identifier.Lexeme), 
+                $"load_{binding.Identifier.Lexeme}"
+            );
         }
 
         public object Visit(Node.Grouping grouping)
@@ -235,6 +205,8 @@ namespace Rhyme.CodeGenerator
 
             foreach (var unit in compilationUnit.Units)
             {
+                // Note: They are globals!
+                _global = true;
                 GenerateNode(unit);
             }
 
@@ -244,5 +216,88 @@ namespace Rhyme.CodeGenerator
             //Console.WriteLine(ll_code);
             return ll_code;
         }
+
+
+
+
+        #region Helpers
+        void DefineFunction(Node.BindingDeclaration functionDefinition)
+        {
+
+        }
+
+        LLVMTypeRef LLVMTypeFromRhymeType(RhymeType type)
+        {
+            return _rhymeTypeLLVMType[type];
+        }
+
+        void DeclareFunction(RhymeType.Function functionDeclaration, string name)
+        {
+            var type = LLVMTypeRef.CreateFunction(
+                LLVMTypeFromRhymeType(functionDeclaration.ReturnType),
+                functionDeclaration.Parameters.Select(p => LLVMTypeFromRhymeType(p)).ToArray()
+            );
+
+            _functions.Add(
+                name,
+                (type, _module.AddFunction(name, type))
+            );
+        }
+
+        LLVMValueRef GetValue(string identifier)
+        {
+            if(_locals.ContainsKey(identifier))
+                return _locals[identifier];
+
+            if (_globals.ContainsKey(identifier))
+                return _globals[identifier];
+
+            return null;
+        }
+        void RhymeDebugBuiltIns()
+        {
+            _debugBuiltIns.Add("dprint", fc =>
+            {
+                _builder.BuildCall2(_functions["printf"].typeRef, _functions["printf"].valueRef, new[] { (LLVMValueRef)GenerateNode(fc.Args[0]) }, "printf");
+
+            });
+
+            _debugBuiltIns.Add("dprint_int", fc =>
+            {
+                var args = fc.Args.Select(arg => (LLVMValueRef)GenerateNode(arg)).ToList();
+                args.Insert(0, _builder.BuildGlobalStringPtr("%d"));
+
+                _builder.BuildCall2(_functions["printf"].typeRef, _functions["printf"].valueRef, args.ToArray(), "printf");
+            });
+
+        }
+        void DefineBuiltIns()
+        {
+            // external forward declaration for 'puts()'
+            var puts = LLVMTypeRef.CreateFunction(
+                LLVMTypeRef.Int32,
+                new LLVMTypeRef[] { LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0) }
+            );
+            _functions.Add(
+                "puts",
+                (puts, _module.AddFunction("puts", puts))
+            );
+
+            // external forward declaration for printf()
+
+            var printf = LLVMTypeRef.CreateFunction(
+                LLVMTypeRef.Int32,
+                new[] { LLVMTypeRef.CreatePointer(LLVMTypeRef.Int8, 0) },
+                true
+            );
+
+            _functions.Add(
+                "printf",
+                (printf, _module.AddFunction("printf", printf))
+            );
+
+        }
+
+        #endregion
     }
 }

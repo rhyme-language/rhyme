@@ -10,6 +10,12 @@ using Rhyme.Parser;
 namespace Rhyme.Resolver
 {
 
+    internal enum ResolutionResult
+    {
+        Defined,
+        Shadowed,
+        AlreadyExists,
+    }
     internal class Scope
     {
         Dictionary<string, RhymeType> _symbols = new Dictionary<string, RhymeType>();
@@ -40,15 +46,20 @@ namespace Rhyme.Resolver
         }
         public Scope(Scope enclosingScope = null) { Enclosing = enclosingScope; }
 
-        public bool Define(Token token, RhymeType type)
+        public ResolutionResult Define(Token token, RhymeType type)
         {
+            if (Enclosing != null && Enclosing.get(token) != RhymeType.NoneType)
+                return ResolutionResult.Shadowed;
+
             if (!_symbols.ContainsKey(token.Lexeme))
             {
                 _symbols.Add(token.Lexeme, type);
-                return true;
+                return ResolutionResult.Defined;
             }
 
-            return false;
+
+
+            return ResolutionResult.AlreadyExists;
         }
 
 
@@ -76,6 +87,11 @@ namespace Rhyme.Resolver
         List<Scope> _scopes = new List<Scope>();
 
         int _index = 0;
+
+        public SymbolTable()
+        {
+            _scopes.Add(_current);
+        }
 
         public void StartScope()
         {
@@ -105,7 +121,7 @@ namespace Rhyme.Resolver
             _index = 0; 
         }
 
-        public bool Define(Declaration declaration)
+        public ResolutionResult Define(Declaration declaration)
         {
             return _current.Define(declaration.Identifier, declaration.Type);
         }
