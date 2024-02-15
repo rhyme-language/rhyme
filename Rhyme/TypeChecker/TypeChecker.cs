@@ -34,6 +34,7 @@ namespace Rhyme.TypeChecker
         public TypeChecker(IReadOnlySymbolTable symbolTable)
         {
             _symbolTable = symbolTable;
+            _symbolTable.Reset();
             Errors = _errors;   
         }
 
@@ -49,14 +50,17 @@ namespace Rhyme.TypeChecker
         }
         public RhymeType Visit(Node.Literal literalExpr)
         {
-            if (literalExpr.ValueToken.Value is int)
-                return RhymeType.U32;
+            switch (literalExpr.ValueToken.Type)
+            {
+                case TokenType.Integer:
+                    return RhymeType.U32;
 
-            if (literalExpr.ValueToken.Value is string)
-                return RhymeType.Str;
+                case TokenType.String:
+                    return RhymeType.Str;
 
-            
-            return RhymeType.NoneType;
+                default:
+                    return RhymeType.NoneType;
+            }
         }
 
         public RhymeType Visit(Node.Binary binaryExpr)
@@ -69,7 +73,8 @@ namespace Rhyme.TypeChecker
             if (eval_result.valid)
                 return eval_result.result;
             else
-                Error(binaryExpr.Op, $"Can't apply operator '{binaryExpr.Op.Lexeme}' on types '{lhs}' and '{rhs}'");
+                return null;
+                //Error(binaryExpr.Op, $"Can't apply operator '{binaryExpr.Op.Lexeme}' on types '{lhs}' and '{rhs}'");
 
             return RhymeType.NoneType;
         }
@@ -93,13 +98,14 @@ namespace Rhyme.TypeChecker
 
         public RhymeType Visit(Node.BindingDeclaration bindingDecl)
         {
+            var decl = bindingDecl.Declaration;
+            var decl_type = _symbolTable[decl.Identifier];
+
             var rhs_type = check(bindingDecl.expression);
 
             if (rhs_type == RhymeType.NoneType)
                 return RhymeType.NoneType;
 
-            var decl = bindingDecl.Declaration;
-            var decl_type = _symbolTable[decl.Identifier];
             if (!decl_type.Equals(rhs_type)){
                 Error(decl.Identifier.Line, decl.Identifier.Start, decl.Identifier.Lexeme.Length,
                     $"Can not implicitly convert type '{rhs_type}' to a binding of type '{decl_type}'");
@@ -138,7 +144,8 @@ namespace Rhyme.TypeChecker
             }
             else
             {
-                Error(((Node.Binding)assignment.Assignee).Identifier,
+                var token = ((Node.Binding)assignment.Assignee).Identifier;
+                Error(token.Line, token.Start, token.Lexeme.Length,
                     $"Can't implicitly assign value of type '{rhs}' to a binding of type '{lhs}'");
                 return RhymeType.NoneType;
             }
@@ -170,14 +177,14 @@ namespace Rhyme.TypeChecker
 
                     if (lhs is RhymeType.Primitive && rhs is RhymeType.Primitive)
                     {
-                        if (lhs is RhymeType.Numeric && rhs is RhymeType.Numeric)
+                        if (lhs is RhymeType.Numeric lhs_num && rhs is RhymeType.Numeric rhs_num)
                         {
                             // Only assignment from lower numeric types to higher ones is allowed (e.g. u16 to f64)
 
-                            bool valid = (RhymeType.Numeric)lhs > (RhymeType.Numeric)rhs;
+                            bool valid = lhs_num > rhs_num;
 
                             if (valid)
-                                return (valid, RhymeType.Numeric.Max((RhymeType.Numeric)lhs, (RhymeType.Numeric)rhs));
+                                return (valid, RhymeType.Numeric.Max(lhs_num, rhs_num));
                             else
                                 return (false, RhymeType.NoneType);
                         }

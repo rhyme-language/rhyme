@@ -355,7 +355,6 @@ namespace Rhyme.Parser
             if (Match(TokenType.Integer) || Match(TokenType.String))
                 return new Node.Literal(_current.Previous.Value, Position.FromToken(_current.Previous.Value));
 
-
             // Statement-like
             if (Match(TokenType.LeftCurly))
                 return Block();

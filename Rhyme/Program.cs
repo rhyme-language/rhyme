@@ -8,6 +8,7 @@
 #define PARSER
 #define RESOLVER
 #define TYPE_CHECKER
+#define CODE_GENERATOR
 
 using System.Diagnostics;
 
@@ -16,6 +17,16 @@ using Rhyme.Scanner;
 using Rhyme.Parser;
 using Rhyme.Resolver;
 using Rhyme.TypeChecker;
+using Rhyme.CodeGenerator;
+
+if(args.Length != 1)
+{
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine("Error wrong input");
+    Console.ResetColor();
+    Console.WriteLine("Usage: rhyme [file]");
+    return;
+}
 
 var source = File.ReadAllText("code.rhm");
 
@@ -27,7 +38,7 @@ Scanner scanner = Scanner.FromFile("code.rhm");
 #if DEBUG_TOKENS
 foreach (var token in scanner.Scan())
 {
-    Console.WriteLine(token);
+    Debug.WriteLine(token);
 }
 #endif
 
@@ -57,7 +68,6 @@ void ReportError(PassError error)
 
 if (scanner.HadError)
 {
-
     foreach (var error in scanner.Errors)
     {
         ReportError(error);
@@ -107,5 +117,30 @@ if (type_checker.HadError)
 }
 
 #endif
+
+#if CODE_GENERATOR
+CodeGenerator code_generator = new CodeGenerator(root, symbol_table);
+var ll_code = code_generator.Generate();
+
+if (code_generator.HadError)
+{
+    foreach (var error in code_generator.Errors)
+    {
+        ReportError(error);
+    }
+    return;
+}
+#endif
+
+Debug.WriteLine(ll_code);
+File.WriteAllText("output.ll", ll_code);
+var clang_process = Process.Start(new ProcessStartInfo("clang", "output.ll -o program.exe"));
+clang_process.WaitForExit();
+
 stopwatch.Stop();
+Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
 Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
+Console.WriteLine("Running...\n");
+Thread.Sleep(500);
+Console.Clear();
+Process.Start("program.exe");

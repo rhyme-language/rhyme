@@ -9,6 +9,8 @@ using Rhyme.Parser;
 
 namespace Rhyme.Resolver
 {
+    internal record Function(string Name, RhymeType.Function Type, Declaration[] Locals);
+
     internal class Resolver : Node.IVisitor<object>, ICompilerPass
     {
         public bool HadError { get; private set; }
@@ -39,13 +41,14 @@ namespace Rhyme.Resolver
                 new RhymeType.Function(RhymeType.Void, RhymeType.Str),
                 new Token("dprint", TokenType.Identifier, 0, 0, 0)
             ));
+
+            _symbolTable.Define(new Declaration(
+                new RhymeType.Function(RhymeType.Void, RhymeType.U32),
+                new Token("dprint_int", TokenType.Identifier, 0, 0, 0)
+            ));
         }
         public SymbolTable Resolve(Node.CompilationUnit program)
         {
-
-            // Global scope
-            _symbolTable.StartScope();
-
             ResolveNode(program);
 
             return _symbolTable;
@@ -58,8 +61,13 @@ namespace Rhyme.Resolver
 
         void Bind(Declaration declaration)
         {
-            if (!_symbolTable.Define(declaration))
+            var result = _symbolTable.Define(declaration);
+
+            if(result == ResolutionResult.AlreadyExists)
                 Error(declaration.Identifier, $"'{declaration.Identifier.Lexeme}' is already defined in this scope");
+            
+            if(result == ResolutionResult.Shadowed)
+                Error(declaration.Identifier, $"'{declaration.Identifier.Lexeme}' shadows an outer declaration");
         }
 
         public object Visit(Node.Literal literalExpr)
@@ -79,12 +87,16 @@ namespace Rhyme.Resolver
             throw new NotImplementedException();
         }
 
+        List<Declaration> _functionLocals = new List<Declaration>();
+
         public object Visit(Node.Block blockExpr)
         {
             _symbolTable.StartScope();
 
             foreach (var stmt in blockExpr.ExpressionsStatements)
+            {
                 ResolveNode(stmt);
+            }
 
             _symbolTable.EndScope();
 
@@ -133,6 +145,9 @@ namespace Rhyme.Resolver
         public object Visit(Node.FunctionCall callExpr)
         {
             ResolveNode(callExpr.Callee);
+            foreach(var arg in callExpr.Args)
+                ResolveNode(arg);
+
             return null;
         }
     }
