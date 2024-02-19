@@ -131,7 +131,7 @@ namespace Rhyme.Scanner
                 }
 
                 if (token_type != TokenType.None) { 
-                    yield return new Token(_source.Substring(start, _pos - start + 1), token_type, _line, start, _pos, null);
+                    yield return new Token(_source.Substring(start, _pos - start + 1), token_type, new Position(_line, start, _pos), null);
                 }
                 else if (char.IsLetter(Current) || Current == '_')
                 {
@@ -262,7 +262,7 @@ namespace Rhyme.Scanner
 
             string lexeme = _source.Substring(start, _pos - start + 1);
 
-            return new Token(lexeme, TokenType.String, _line, start, _pos, lexeme.Substring(1, lexeme.Length - 2));
+            return new Token(lexeme, TokenType.String, new Position(_line, start, _pos), lexeme.Substring(1, lexeme.Length - 2));
         }
         Token Identifier()
         {
@@ -278,9 +278,9 @@ namespace Rhyme.Scanner
             _pos--;
 
             if (_keywords.ContainsKey(lexeme))
-                return new Token(lexeme, _keywords[lexeme], _line, start, _pos);
+                return new Token(lexeme, _keywords[lexeme], new Position(_line, start, _pos));
 
-            return new Token(lexeme, TokenType.Identifier, _line, start, _pos);
+            return new Token(lexeme, TokenType.Identifier, new Position(_line, start, _pos));
         }
 
         Token Number()
@@ -292,7 +292,7 @@ namespace Rhyme.Scanner
                 Advance();
 
             _pos--;
-            return new Token(_source.Substring(start, _pos - start + 1), TokenType.Integer, _line, start, _pos, int.Parse(_source.Substring(start, _pos - start + 1)));
+            return new Token(_source.Substring(start, _pos - start + 1), TokenType.Integer, new Position(_line, start, _pos), int.Parse(_source.Substring(start, _pos - start + 1)));
         }
         #endregion
 

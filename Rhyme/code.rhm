@@ -1,9 +1,5 @@
 ﻿// Collective Operations
 void() main = {
-    u32 x = 4;
-    {
-        u32 y = 4;
-    };
-
+    i32 y = 4;
     dprint_int(y);
 };

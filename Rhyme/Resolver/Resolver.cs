@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using Rhyme.Scanner;
 using Rhyme.Parser;
+using System.Xml.Linq;
 
 namespace Rhyme.Resolver
 {
@@ -18,9 +19,9 @@ namespace Rhyme.Resolver
         public IReadOnlyCollection<PassError> Errors { get; private set; }
         List<PassError> _errors = new List<PassError>();
 
-        void Error(Token error_token, string message)
+        void Error(Position position, string message)
         {
-            Error(error_token.Line, error_token.Start, error_token.Lexeme.Length, message);
+            Error(position.Line, position.Start, position.Start - position.End, message);
         }
         void Error(int line, int start, int length, string message)
         {
@@ -39,12 +40,12 @@ namespace Rhyme.Resolver
             // dprint (debug print) a temporal function for printing to console stream.
             _symbolTable.Define(new Declaration(
                 new RhymeType.Function(RhymeType.Void, RhymeType.Str),
-                new Token("dprint", TokenType.Identifier, 0, 0, 0)
+                "dprint"
             ));
 
             _symbolTable.Define(new Declaration(
-                new RhymeType.Function(RhymeType.Void, RhymeType.U32),
-                new Token("dprint_int", TokenType.Identifier, 0, 0, 0)
+                new RhymeType.Function(RhymeType.Void, RhymeType.I32),
+                "dprint_int"
             ));
         }
         public SymbolTable Resolve(Node.CompilationUnit program)
@@ -57,17 +58,6 @@ namespace Rhyme.Resolver
         void ResolveNode(Node node)
         {
             node.Accept(this);
-        }
-
-        void Bind(Declaration declaration)
-        {
-            var result = _symbolTable.Define(declaration);
-
-            if(result == ResolutionResult.AlreadyExists)
-                Error(declaration.Identifier, $"'{declaration.Identifier.Lexeme}' is already defined in this scope");
-            
-            if(result == ResolutionResult.Shadowed)
-                Error(declaration.Identifier, $"'{declaration.Identifier.Lexeme}' shadows an outer declaration");
         }
 
         public object Visit(Node.Literal literalExpr)
@@ -105,7 +95,14 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.BindingDeclaration bindingDecl)
         {
-            Bind(bindingDecl.Declaration);
+            var result = _symbolTable.Define(bindingDecl.Declaration);
+
+            if (result == ResolutionResult.AlreadyExists)
+                Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' is already defined in this scope");
+
+            if (result == ResolutionResult.Shadowed)
+                Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' shadows an outer declaration");
+
             ResolveNode(bindingDecl.expression);
             return null;
         }
@@ -122,8 +119,8 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.Binding binding)
         {
-            if (!_symbolTable.Contains(binding.Identifier))
-                Error(binding.Identifier, $"'{binding.Identifier.Lexeme}' is not defined in this scope");
+            if (!_symbolTable.Contains(binding.Identifier.Lexeme))
+                Error(binding.Position, $"'{binding.Identifier.Lexeme}' is not defined in this scope");
 
             return null;
         }

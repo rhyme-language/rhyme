@@ -8,12 +8,7 @@ using Rhyme.Scanner;
 
 namespace Rhyme.Parser
 {
-    internal record Declaration(RhymeType Type, Token Identifier);
-    internal record Position(int Line, int Start, int End)
-    {
-        public static Position FromToken(Token token) => new Position(token.Line, token.Start, token.End);
-    };
-
+    internal record Declaration(RhymeType Type, string Identifier);
 
     /// <summary>
     /// Represents a node in an abstract syntax tree
@@ -43,62 +38,74 @@ namespace Rhyme.Parser
         public Position Position { get; }
         
 
-        public record CompilationUnit(IReadOnlyCollection<Node> Units, Position Position) : Node
+        public record CompilationUnit(IReadOnlyCollection<Node> Units) : Node
         {
+            public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record Literal(Token ValueToken, Position Position) : Node
+        public record Literal(Token ValueToken) : Node
         {
+            public Position Position => ValueToken.Position;
+
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record Binary(Node Left, Token Op, Node Right, Position Position) : Node
+        public record Binary(Node Left, Token Op, Node Right) : Node
         {
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-
-        }
-
-        public record Unary(Token Op, Node Operand, Position Position) : Node
-        {
+            public Position Position => new Position(Left.Position.Line, Left.Position.Start, Right.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
 
-        public record FunctionCall(Position Position, Node Callee, params Node[] Args) : Node
+        public record Unary(Token Op, Node Operand) : Node
         {
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-        }
-
-        public record Block(IReadOnlyCollection<Node> ExpressionsStatements, Position Position) : Node
-        {
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-        }
-
-        public record BindingDeclaration(Declaration Declaration, Node expression, Position Position) : Node
-        {
+            public Position Position => new Position(Op.Position.Line, Operand.Position.Start, Operand.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
 
-        public record Assignment(Node Assignee, Node Expression, Position Position) : Node
+        public record FunctionCall(Node Callee, params Node[] Args) : Node
         {
+            public Position Position => new Position(Callee.Position.Line, Callee.Position.Start, Args.Length > 0 ? Args[^1].Position.End : Callee.Position.End);
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+
+        public record Block(IReadOnlyCollection<Node> ExpressionsStatements) : Node
+        {
+            public Position Position => Position.NonePosition;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+
+        public record BindingDeclaration(Declaration Declaration, Node expression) : Node
+        {
+            public Position Position => expression.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
 
-        public record Binding(Token Identifier, Position Position) : Node
+        public record Assignment(Node Assignee, Node Expression) : Node
         {
+            public Position Position => new Position(Assignee.Position.Line, Assignee.Position.Start, Expression.Position.End);
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+
+        }
+
+        public record Binding(Token Identifier) : Node
+        {
+            public Position Position => Identifier.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record Grouping(Node Expression, Position Position) : Node
+        public record Grouping(Node Expression) : Node
         {
+            public Position Position => Expression.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record If(Node condition, Node thenBody, Node elseBody, Position Position) : Node
+        public record If(Node condition, Node thenBody, Node elseBody) : Node
         {
+            public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
     }

@@ -22,8 +22,8 @@ namespace Rhyme.Resolver
 
         public Scope Enclosing { get; private set; }
 
-        public bool Contains(Token token) {
-            if (_symbols.ContainsKey(token.Lexeme))
+        public bool Contains(string token) {
+            if (_symbols.ContainsKey(token))
                 return true;
 
             if (Enclosing != null) 
@@ -33,10 +33,10 @@ namespace Rhyme.Resolver
         }
 
 
-        RhymeType get(Token token)
+        RhymeType get(string token)
         {
-            if (_symbols.ContainsKey(token.Lexeme))
-                return _symbols[token.Lexeme];
+            if (_symbols.ContainsKey(token))
+                return _symbols[token];
 
             if (Enclosing != null) 
                 return Enclosing.get(token);
@@ -46,14 +46,14 @@ namespace Rhyme.Resolver
         }
         public Scope(Scope enclosingScope = null) { Enclosing = enclosingScope; }
 
-        public ResolutionResult Define(Token token, RhymeType type)
+        public ResolutionResult Define(string token, RhymeType type)
         {
             if (Enclosing != null && Enclosing.get(token) != RhymeType.NoneType)
                 return ResolutionResult.Shadowed;
 
-            if (!_symbols.ContainsKey(token.Lexeme))
+            if (!_symbols.ContainsKey(token))
             {
-                _symbols.Add(token.Lexeme, type);
+                _symbols.Add(token, type);
                 return ResolutionResult.Defined;
             }
 
@@ -63,10 +63,10 @@ namespace Rhyme.Resolver
         }
 
 
-        public RhymeType this[Token identifier]
+        public RhymeType this[string identifier]
         {
             get { return get(identifier); }
-            set { _symbols[identifier.Lexeme] =  value; }
+            set { _symbols[identifier] =  value; }
         }
 
     }
@@ -76,10 +76,10 @@ namespace Rhyme.Resolver
         public void OpenScope();
         public void CloseScope();
         public void Reset();
-        public bool Contains(Token identifier);
-        public RhymeType this[Token identifier] { get; }
+        public bool Contains(string identifier);
+        public RhymeType this[string identifier] { get; }
     }
-    internal class SymbolTable :  IReadOnlySymbolTable
+    internal class SymbolTable : IReadOnlySymbolTable
     {
         Scope _current = new Scope();
 
@@ -126,11 +126,11 @@ namespace Rhyme.Resolver
             return _current.Define(declaration.Identifier, declaration.Type);
         }
 
-        public bool Contains(Token identifier)
+        public bool Contains(string identifier)
         {
             return _current.Contains(identifier);
         }
-        public RhymeType this[Token identifier]
+        public RhymeType this[string identifier]
         {
             get => _scopes[_index][identifier];
             set => _scopes[_index][identifier] = value;

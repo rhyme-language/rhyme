@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Rhyme.Scanner;
 using Rhyme.Parser;
 using Rhyme.Resolver;
+using System.Collections;
 
 namespace Rhyme.TypeChecker
 {
@@ -53,7 +54,7 @@ namespace Rhyme.TypeChecker
             switch (literalExpr.ValueToken.Type)
             {
                 case TokenType.Integer:
-                    return RhymeType.U32;
+                    return RhymeType.I32;
 
                 case TokenType.String:
                     return RhymeType.Str;
@@ -107,21 +108,16 @@ namespace Rhyme.TypeChecker
                 return RhymeType.NoneType;
 
             if (!decl_type.Equals(rhs_type)){
-                Error(decl.Identifier.Line, decl.Identifier.Start, decl.Identifier.Lexeme.Length,
-                    $"Can not implicitly convert type '{rhs_type}' to a binding of type '{decl_type}'");
+                throw new Exception($"Can not implicitly convert type '{rhs_type}' to a binding of type '{decl_type}'");
             }
             
             return RhymeType.NoneType;
         }
 
-        void Error(Token error_token, string message)
-        {
-            Error(error_token.Line, error_token.Start, error_token.Lexeme.Length, message);
-        }
-        void Error(int line, int start, int length, string message)
+        void Error(Position at, string message)
         {
             HadError = true;
-            _errors.Add(new PassError(line, start, length, message));
+            _errors.Add(new PassError(at.Line, at.Start, at.Length, message));
         }
         public RhymeType Visit(Node.If ifStmt)
         {
@@ -135,7 +131,7 @@ namespace Rhyme.TypeChecker
             if (assignment.Assignee is not Node.Binding)
                 throw new Exception("Unassignable target.");
 
-            var lhs = _symbolTable[((Node.Binding)assignment.Assignee).Identifier];
+            var lhs = _symbolTable[((Node.Binding)assignment.Assignee).Identifier.Lexeme];
             var eval_result = TypeEvaluate(rhs, TokenType.Equal, lhs);
 
             if (eval_result.valid)
@@ -145,8 +141,7 @@ namespace Rhyme.TypeChecker
             else
             {
                 var token = ((Node.Binding)assignment.Assignee).Identifier;
-                Error(token.Line, token.Start, token.Lexeme.Length,
-                    $"Can't implicitly assign value of type '{rhs}' to a binding of type '{lhs}'");
+                Error(token.Position, $"Can't implicitly assign value of type '{rhs}' to a binding of type '{lhs}'");
                 return RhymeType.NoneType;
             }
         }
@@ -199,8 +194,8 @@ namespace Rhyme.TypeChecker
 
         public RhymeType Visit(Node.Binding binding)
         {
-            if (_symbolTable.Contains(binding.Identifier))
-                return _symbolTable[binding.Identifier];
+            if (_symbolTable.Contains(binding.Identifier.Lexeme))
+                return _symbolTable[binding.Identifier.Lexeme];
             else
                 return RhymeType.NoneType;
         }

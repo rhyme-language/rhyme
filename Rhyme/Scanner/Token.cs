@@ -32,6 +32,6 @@ namespace Rhyme.Scanner
         None,
     }
 
-    internal record Token(string Lexeme, TokenType Type, int Line, int Start, int End, object Value = null);
+    internal record Token(string Lexeme, TokenType Type, Position Position, object Value = null);
 
 }

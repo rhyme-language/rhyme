@@ -123,7 +123,7 @@ namespace Rhyme.CodeGenerator
                 
                 var function = LLVMTypeRef.CreateFunction(return_type, params_type);
 
-                var func = _module.AddFunction(bindingDecl.Declaration.Identifier.Lexeme, function).AppendBasicBlock("entry");
+                var func = _module.AddFunction(bindingDecl.Declaration.Identifier, function).AppendBasicBlock("entry");
                 _builder.PositionAtEnd(func);
 
                 foreach(var stmt in ((Node.Block)bindingDecl.expression).ExpressionsStatements)
@@ -135,7 +135,7 @@ namespace Rhyme.CodeGenerator
             }
             
 
-            var identifier = bindingDecl.Declaration.Identifier.Lexeme;
+            var identifier = bindingDecl.Declaration.Identifier;
             var llvm_type = LLVMTypeFromRhymeType(bindingDecl.Declaration.Type);
 
             if (_global)
@@ -184,7 +184,7 @@ namespace Rhyme.CodeGenerator
         public object Visit(Node.Binding binding)
         {
             return _builder.BuildLoad2(
-                LLVMTypeFromRhymeType(_symbolTable[binding.Identifier]),
+                LLVMTypeFromRhymeType(_symbolTable[binding.Identifier.Lexeme]),
                 GetValue(binding.Identifier.Lexeme), 
                 $"load_{binding.Identifier.Lexeme}"
             );

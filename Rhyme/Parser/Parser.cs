@@ -86,7 +86,7 @@ namespace Rhyme.Parser
                     units.Add(Binding());
             } while (!AtEnd());
 
-            return new Node.CompilationUnit(units, null);
+            return new Node.CompilationUnit(units);
         }
         private RhymeType Type()
         {
@@ -100,6 +100,10 @@ namespace Rhyme.Parser
                 case TokenType.Identifier:
                 case TokenType.Void:
                 case TokenType.Var:
+                case TokenType.I8:
+                case TokenType.I16:
+                case TokenType.I32:
+                case TokenType.I64:
                 case TokenType.U8:
                 case TokenType.U16:
                 case TokenType.U32:
@@ -160,7 +164,7 @@ namespace Rhyme.Parser
                 expr = Expression();
             }
             Consume(TokenType.Semicolon, "Expects a ';' after a binding value");
-            return new Node.BindingDeclaration(decl, expr, null);
+            return new Node.BindingDeclaration(decl, expr);
 
         }
 
@@ -184,7 +188,7 @@ namespace Rhyme.Parser
                     if (Match(TokenType.Identifier))
                     {
                         identifierToken = _current.Previous.Value;
-                        return new Declaration(type, identifierToken);
+                        return new Declaration(type, identifierToken.Lexeme);
                     }
 
                     if (Match(TokenType.Semicolon))
@@ -204,7 +208,7 @@ namespace Rhyme.Parser
             }
 
             identifierToken = Consume(TokenType.Identifier, "Expects a binding name.");
-            return new Declaration(type, identifierToken);
+            return new Declaration(type, identifierToken.Lexeme);
         }
 
         private Node Statement()
@@ -240,7 +244,7 @@ namespace Rhyme.Parser
             {
                 else_body = Expression();
             }
-            return new Node.If(condition, then_body, else_body,null);
+            return new Node.If(condition, then_body, else_body);
 
         }
 
@@ -252,7 +256,7 @@ namespace Rhyme.Parser
             while (Match(TokenType.Equal))
             {
                 var rhs = Assignment();
-                return new Node.Assignment(lhs, rhs, null);
+                return new Node.Assignment(lhs, rhs);
             }
 
 
@@ -267,7 +271,7 @@ namespace Rhyme.Parser
             {
                 var rhs = Comparison();
                 var op = _current.Previous.Previous.Value;
-                return new Node.Binary(lhs, op, rhs, new Position(lhs.Position.Line, lhs.Position.Start, rhs.Position.End));
+                return new Node.Binary(lhs, op, rhs);
             }
 
             return lhs;
@@ -281,7 +285,7 @@ namespace Rhyme.Parser
             {
                 var rhs = Term();
                 var op = _current.Previous.Previous.Value;
-                return new Node.Binary(lhs, op, rhs, new Position(lhs.Position.Line, lhs.Position.Start, rhs.Position.End));
+                return new Node.Binary(lhs, op, rhs);
             }
 
             return lhs;
@@ -295,7 +299,7 @@ namespace Rhyme.Parser
             {
                 var rhs = Factor();
                 var op = _current.Previous.Previous.Value;
-                return new Node.Binary(lhs, op, rhs, new Position(lhs.Position.Line, lhs.Position.Start, rhs.Position.End));
+                return new Node.Binary(lhs, op, rhs);
             }
 
             return lhs;
@@ -308,7 +312,7 @@ namespace Rhyme.Parser
             {
                 var rhs = Unary();
                 var op = _current.Previous.Previous.Value;
-                return new Node.Binary(lhs, op, rhs, new Position(lhs.Position.Line, lhs.Position.Start, rhs.Position.End));
+                return new Node.Binary(lhs, op, rhs);
             }
 
             return lhs;
@@ -320,7 +324,7 @@ namespace Rhyme.Parser
             {
                 var operand = Call();
                 var op = _current.Previous.Previous.Value;
-                return new Node.Unary(op, operand, new Position(op.Line, op.Start, operand.Position.End));
+                return new Node.Unary(op, operand);
             }
 
             return Call();
@@ -341,7 +345,7 @@ namespace Rhyme.Parser
                     } while (Match(TokenType.Comma));
                 }
                 Consume(TokenType.RightParen, "Expect ')' after arguments.");
-                return new Node.FunctionCall(callee.Position, callee, args.ToArray());
+                return new Node.FunctionCall(callee, args.ToArray());
             }
             return callee;
         }
@@ -350,10 +354,10 @@ namespace Rhyme.Parser
         {
 
             if (Match(TokenType.Identifier))
-                return new Node.Binding(_current.Previous.Value, Position.FromToken(_current.Previous.Value));
+                return new Node.Binding(_current.Previous.Value);
 
             if (Match(TokenType.Integer) || Match(TokenType.String))
-                return new Node.Literal(_current.Previous.Value, Position.FromToken(_current.Previous.Value));
+                return new Node.Literal(_current.Previous.Value);
 
             // Statement-like
             if (Match(TokenType.LeftCurly))
@@ -373,7 +377,7 @@ namespace Rhyme.Parser
             {
                 statements.Add(Statement());
             }
-            return new Node.Block(statements, null);
+            return new Node.Block(statements);
         }
 
         #endregion
