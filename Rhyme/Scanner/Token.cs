@@ -11,7 +11,7 @@ namespace Rhyme.Scanner
 
         SingleQuote, DoubleQuote,
         LeftParen, RightParen, LeftCurly, RightCurly,
-        Comma, Colon, Semicolon, BackTick,
+        Comma, Colon, Semicolon, BackTick, Dot,
 
         Hash, Caret, Ampersand, Percent, Dollar,
 

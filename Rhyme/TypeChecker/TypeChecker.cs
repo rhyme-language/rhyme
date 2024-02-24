@@ -66,6 +66,7 @@ namespace Rhyme.TypeChecker
 
         public RhymeType Visit(Node.Binary binaryExpr)
         {
+
             var lhs = check(binaryExpr.Left);
             var rhs = check(binaryExpr.Right);
 

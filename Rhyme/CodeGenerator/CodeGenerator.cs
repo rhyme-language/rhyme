@@ -197,7 +197,7 @@ namespace Rhyme.CodeGenerator
 
         public object Visit(Node.CompilationUnit compilationUnit)
         {
-            _module = LLVMModuleRef.CreateWithName("first_modue");
+            _module = LLVMModuleRef.CreateWithName("module");
             _builder = _module.Context.CreateBuilder();
 
             DefineBuiltIns();

@@ -48,7 +48,7 @@ namespace Rhyme.Scanner
             _line = 1;
             
 
-            for (_pos = 0; _pos < _source.Length; _pos++)
+            for (_pos = 0; _pos < _source.Length;_pos++)
             {
                 TokenType token_type = TokenType.None;
 
@@ -104,7 +104,7 @@ namespace Rhyme.Scanner
                     case '#': token_type = TokenType.Hash; break;
 
                     case ',': token_type = TokenType.Comma; break;
-
+                    case '.': token_type = TokenType.Dot; break;
                     case '=':
                         Advance();
                         if (Match('=', false)) { 
@@ -288,11 +288,39 @@ namespace Rhyme.Scanner
             int start = _pos;
             Advance();
 
-            while (!AtEnd && char.IsNumber(Current))
+            var type = TokenType.Integer;
+
+            bool dot = false;
+            while ((!AtEnd && char.IsNumber(Current)) || Current == '.')
+            {
+                if(Current == '.')
+                {
+                    type = TokenType.Float;
+
+                    if (!dot)
+                    {
+                        dot = true;
+                        Advance();
+                        continue;
+                    }
+                    
+                    break;
+                }
                 Advance();
+            }
 
             _pos--;
-            return new Token(_source.Substring(start, _pos - start + 1), TokenType.Integer, new Position(_line, start, _pos), int.Parse(_source.Substring(start, _pos - start + 1)));
+
+            var length = _pos - start + 1;
+            return new Token(
+                _source.Substring(start, length),
+                type,
+                new Position(_line, start, _pos),
+                Value: type switch {
+                    TokenType.Integer => int.Parse(_source.Substring(start, length)),
+                    TokenType.Float => float.Parse(_source.Substring(start, length))
+                }
+            );
         }
         #endregion
 

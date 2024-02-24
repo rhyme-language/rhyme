@@ -366,7 +366,8 @@ namespace Rhyme.Parser
             if (Match(TokenType.If))
                 return If();
 
-            throw new Exception();
+            Error(_current.Value.Position, "A expression expected!");
+            return null;
         }
 
         private Node Block()
@@ -382,6 +383,10 @@ namespace Rhyme.Parser
 
         #endregion
 
-
+        void Error(Position at,  string message)
+        {
+            HadError = true;
+            _errors.Add(new PassError(at.Line, at.Start, at.Length, message));
+        }
     }
 }

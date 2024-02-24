@@ -61,7 +61,7 @@ void ReportError(PassError error)
     Console.ResetColor();
     Console.WriteLine(lines[error.Line - 1]);
     Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine(new string(' ', relative_start) + '^' + new string('~', error.Length - 1));
+    Console.WriteLine(new string(' ', relative_start) + '^' + new string('~', error.Length));
     Console.ResetColor();
     Console.WriteLine();
 }
