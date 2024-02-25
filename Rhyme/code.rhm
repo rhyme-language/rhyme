@@ -1,1 +1,8 @@
-﻿i32 y = 4.5 + 2;
+﻿i32(i32 a, i32 b) sum = {
+    return a + b;
+};
+void() main = {
+    i32 x = 6;
+    dprint_int(x);
+    dprint_int(sum(1, 2));
+};

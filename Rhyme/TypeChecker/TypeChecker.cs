@@ -9,6 +9,7 @@ using Rhyme.Scanner;
 using Rhyme.Parser;
 using Rhyme.Resolver;
 using System.Collections;
+using LLVMSharp;
 
 namespace Rhyme.TypeChecker
 {
@@ -59,6 +60,9 @@ namespace Rhyme.TypeChecker
                 case TokenType.String:
                     return RhymeType.Str;
 
+                case TokenType.Float:
+                    return RhymeType.F32;
+
                 default:
                     return RhymeType.NoneType;
             }
@@ -98,18 +102,34 @@ namespace Rhyme.TypeChecker
             return new RhymeType.Function(RhymeType.Void);
         }
 
+        RhymeType.Function _currentFunction = null;
         public RhymeType Visit(Node.BindingDeclaration bindingDecl)
         {
             var decl = bindingDecl.Declaration;
             var decl_type = _symbolTable[decl.Identifier];
 
-            var rhs_type = check(bindingDecl.expression);
+            if(bindingDecl.Expression is Node.Block block)
+            {
+                _currentFunction = (RhymeType.Function)bindingDecl.Declaration.Type;
+
+                check(block);
+
+                if(bindingDecl.Declaration.Type is not RhymeType.Function)
+                {
+                    Error(bindingDecl.Position, $"Binding '{bindingDecl.Declaration.Identifier}' is not a function type");
+                    return RhymeType.NoneType;
+                }
+
+                return RhymeType.NoneType;
+            }
+
+            var rhs_type = check(bindingDecl.Expression);
 
             if (rhs_type == RhymeType.NoneType)
                 return RhymeType.NoneType;
 
             if (!decl_type.Equals(rhs_type)){
-                throw new Exception($"Can not implicitly convert type '{rhs_type}' to a binding of type '{decl_type}'");
+                Error(bindingDecl.Position, $"Can not implicitly convert type '{rhs_type}' to a binding of type '{decl_type}'");
             }
             
             return RhymeType.NoneType;
@@ -195,10 +215,7 @@ namespace Rhyme.TypeChecker
 
         public RhymeType Visit(Node.Binding binding)
         {
-            if (_symbolTable.Contains(binding.Identifier.Lexeme))
-                return _symbolTable[binding.Identifier.Lexeme];
-            else
-                return RhymeType.NoneType;
+            return _symbolTable[binding.Identifier.Lexeme];
         }
 
         public RhymeType Visit(Node.Grouping grouping)
@@ -229,16 +246,30 @@ namespace Rhyme.TypeChecker
                     {
                         var arg_type = check(callExpr.Args[i]);
 
-                        if (arg_type != func_type.Parameters[i])
+                        if (arg_type != func_type.Parameters[i].Type)
                         {
-                            throw new Exception($"Wrong argument type from {arg_type} to {func_type.Parameters[i]}");
+                            Error(callExpr.Args[i].Position, $"Wrong argument type '{arg_type}', Expects: '{func_type.Parameters[i].Type}'");
+                            return RhymeType.NoneType;
                         }
                     }
                     return func_type.ReturnType;
                 }
-                throw new Exception($"{callExpr.Args.Length} arguments passed to the function and expects {func_type.Parameters.Length}");
+                Error(callExpr.Position, $"{callExpr.Args.Length} arguments passed to the function and expects {func_type.Parameters.Length}");
+                return RhymeType.NoneType;
             }
-            throw new Exception("Invalid call");
+            Error(callExpr.Position, $"Uninvocable expression");
+            return RhymeType.NoneType;
+        }
+
+        public RhymeType Visit(Node.Return returnStmt)
+        {
+            var return_type = check(returnStmt.RetrunExpression);
+
+            if (return_type != _currentFunction.ReturnType)
+                Error(returnStmt.Position, $"A value of type '{return_type}' can't be returned from a function of return type '{_currentFunction.ReturnType}'");
+
+            return check(returnStmt.RetrunExpression);
+
         }
     }
 }

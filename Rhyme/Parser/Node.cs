@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -27,6 +28,7 @@ namespace Rhyme.Parser
             T Visit(Block blockExpr);
             T Visit(BindingDeclaration bindingDecl);
             T Visit(If ifStmt);
+            T Visit(Return returnStmt);
             T Visit(Assignment assignment);
             T Visit(FunctionCall callExpr);
             T Visit(Binding binding);
@@ -77,9 +79,9 @@ namespace Rhyme.Parser
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record BindingDeclaration(Declaration Declaration, Node expression) : Node
+        public record BindingDeclaration(Declaration Declaration, Node Expression) : Node
         {
-            public Position Position => expression.Position;
+            public Position Position => Expression.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
@@ -107,6 +109,13 @@ namespace Rhyme.Parser
         {
             public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+
+        public record Return(Node RetrunExpression) : Node
+        {
+            public Position Position => RetrunExpression.Position;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+
         }
     }
 }

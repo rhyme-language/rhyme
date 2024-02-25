@@ -83,7 +83,6 @@ namespace Rhyme.Resolver
     {
         Scope _current = new Scope();
 
-        Stack<Scope> _scopeStack = new Stack<Scope>();
         List<Scope> _scopes = new List<Scope>();
 
         int _index = 0;
@@ -96,14 +95,13 @@ namespace Rhyme.Resolver
         public void StartScope()
         {
             var new_scope = new Scope(_current);
-            _scopeStack.Push(new_scope);
             _scopes.Add(new_scope);
             _current = new_scope;
         }
 
         public void EndScope()
         {
-            _current = _scopeStack.Pop();
+            _current = _current.Enclosing;
         }
 
         public void OpenScope()
@@ -113,7 +111,7 @@ namespace Rhyme.Resolver
 
         public void CloseScope()
         {
-            _index--;
+            //_index--;
         }
 
         public void Reset()

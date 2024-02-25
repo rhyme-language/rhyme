@@ -22,6 +22,7 @@ namespace Rhyme.Scanner
             { "using", TokenType.Using },
             { "for", TokenType.For },
             { "while", TokenType.While },
+            { "return", TokenType.Return },
 
             { "var", TokenType.Var },
 

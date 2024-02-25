@@ -23,7 +23,7 @@ namespace Rhyme.Scanner
         GreaterThan, SmallerThan, GreaterEqual, SmallerEqual,
 
         // Keywords
-        If, Else, For, While, Using, Var,
+        If, Else, For, While, Using, Var, Return,
 
 
         // Types

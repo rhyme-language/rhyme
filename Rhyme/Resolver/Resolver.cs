@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Rhyme.Scanner;
 using Rhyme.Parser;
 using System.Xml.Linq;
+using LLVMSharp;
 
 namespace Rhyme.Resolver
 {
@@ -21,7 +22,7 @@ namespace Rhyme.Resolver
 
         void Error(Position position, string message)
         {
-            Error(position.Line, position.Start, position.Start - position.End, message);
+            Error(position.Line, position.Start, position.Length, message);
         }
         void Error(int line, int start, int length, string message)
         {
@@ -39,13 +40,18 @@ namespace Rhyme.Resolver
             // through the code until we make our own standard library.
             // dprint (debug print) a temporal function for printing to console stream.
             _symbolTable.Define(new Declaration(
-                new RhymeType.Function(RhymeType.Void, RhymeType.Str),
+                new RhymeType.Function(RhymeType.Void, new Declaration(RhymeType.Str, "string")),
                 "dprint"
             ));
 
             _symbolTable.Define(new Declaration(
-                new RhymeType.Function(RhymeType.Void, RhymeType.I32),
+                new RhymeType.Function(RhymeType.Void, new Declaration(RhymeType.I32, "int")),
                 "dprint_int"
+            ));
+
+            _symbolTable.Define(new Declaration(
+                new RhymeType.Function(RhymeType.Void, new Declaration(RhymeType.F32, "float")),
+                "dprint_flt"
             ));
         }
         public SymbolTable Resolve(Node.CompilationUnit program)
@@ -103,7 +109,25 @@ namespace Rhyme.Resolver
             if (result == ResolutionResult.Shadowed)
                 Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' shadows an outer declaration");
 
-            ResolveNode(bindingDecl.expression);
+            if(bindingDecl.Expression is Node.Block block)
+            {
+                _symbolTable.StartScope();
+
+                // Resolve Parameters
+                if(bindingDecl.Declaration.Type is RhymeType.Function func_type)
+                {
+                    foreach(var param in func_type.Parameters)
+                        _symbolTable.Define(param);
+
+                    foreach (var stmt in block.ExpressionsStatements)
+                        ResolveNode(stmt);
+
+                    _symbolTable.EndScope();
+                    return null;
+                } 
+            }
+
+            ResolveNode(bindingDecl.Expression);
             return null;
         }
 
@@ -145,6 +169,12 @@ namespace Rhyme.Resolver
             foreach(var arg in callExpr.Args)
                 ResolveNode(arg);
 
+            return null;
+        }
+
+        public object Visit(Node.Return returnStmt)
+        {
+            ResolveNode(returnStmt.RetrunExpression);
             return null;
         }
     }

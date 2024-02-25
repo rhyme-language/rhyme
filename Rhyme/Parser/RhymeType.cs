@@ -14,15 +14,15 @@ namespace Rhyme.Parser
         internal class Function : RhymeType
         {
             public readonly RhymeType ReturnType;
-            public readonly RhymeType[] Parameters;
+            public readonly Declaration[] Parameters;
 
-            public Function(RhymeType returnType, params RhymeType[] parameters)
+            public Function(RhymeType returnType, params Declaration[] parameters)
             {
                 ReturnType = returnType;
                 Parameters = parameters;
             }
 
-            public override string ToString() => $"{ReturnType}({string.Join<RhymeType>(',', Parameters)})";
+            public override string ToString() => $"{ReturnType}({string.Join(',', Parameters.Select(p => p.Type))})";
             
             public static bool operator ==(Function lhs, Function rhs) => lhs.Equals(rhs);
 

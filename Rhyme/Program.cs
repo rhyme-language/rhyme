@@ -9,6 +9,7 @@
 #define RESOLVER
 #define TYPE_CHECKER
 #define CODE_GENERATOR
+#define RUN
 
 using System.Diagnostics;
 
@@ -61,7 +62,7 @@ void ReportError(PassError error)
     Console.ResetColor();
     Console.WriteLine(lines[error.Line - 1]);
     Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine(new string(' ', relative_start) + '^' + new string('~', error.Length));
+    Console.WriteLine(new string(' ', relative_start) + '^' + new string('~', error.Length - 1));
     Console.ResetColor();
     Console.WriteLine();
 }
@@ -130,8 +131,8 @@ if (code_generator.HadError)
     }
     return;
 }
-#endif
 
+#if RUN
 Debug.WriteLine(ll_code);
 File.WriteAllText("output.ll", ll_code);
 var clang_process = Process.Start(new ProcessStartInfo("clang", "output.ll -o program.exe"));
@@ -144,3 +145,7 @@ Console.WriteLine("Running...\n");
 Thread.Sleep(500);
 Console.Clear();
 Process.Start("program.exe");
+#endif
+#endif
+
+

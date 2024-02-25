@@ -28,6 +28,7 @@ namespace Rhyme.Parser
         {
             _tokens = new LinkedList<Token>(Tokens);
             _current = _tokens.First;
+            Errors = _errors;
         }
 
         public Node.CompilationUnit Parse()
@@ -68,7 +69,9 @@ namespace Rhyme.Parser
                     return token;
                 }
             }
-            throw new Exception(errorMessage);
+
+            Error(_current.Value.Position, errorMessage);
+            return null;
         }
 
         #endregion
@@ -92,7 +95,7 @@ namespace Rhyme.Parser
         {
             RhymeType returnType = RhymeType.NoneType;
             var current = _current;
-            
+
             var token = _current.Value;
 
             switch (token.Type)
@@ -139,7 +142,7 @@ namespace Rhyme.Parser
 
                 Consume(TokenType.RightParen, "Expect ')' after arguments.");
 
-                return new RhymeType.Function(returnType, arguments.Select(a => a.Type).ToArray());
+                return new RhymeType.Function(returnType, arguments.ToArray());
 
             }
 
@@ -172,7 +175,7 @@ namespace Rhyme.Parser
         {
             var current = _current;
             RhymeType type = Type();
-            
+
             if (type == RhymeType.NoneType)
             {
                 _current = current;
@@ -183,7 +186,7 @@ namespace Rhyme.Parser
 
             if (type is RhymeType.Function)
             {
-                if(((RhymeType.Function)type).Parameters.Length == 0)
+                if (((RhymeType.Function)type).Parameters.Length == 0)
                 {
                     if (Match(TokenType.Identifier))
                     {
@@ -194,13 +197,13 @@ namespace Rhyme.Parser
                     if (Match(TokenType.Semicolon))
                     {
                         // Normal function call, rollback!
-                        _current = current; 
+                        _current = current;
                         return null;
                     }
                 }
             }
 
-            if (Match(TokenType.RightParen)) 
+            if (Match(TokenType.RightParen))
             {
                 // Normal function call, rollback!
                 _current = current;
@@ -214,18 +217,24 @@ namespace Rhyme.Parser
         private Node Statement()
         {
 
-            var binding = Binding();
+            var node = Binding();
 
-            if (binding != null)
-                return binding;
-            
-            Node node = Assignment();
+            if (node != null)
+                return node;
+
+            if (Match(TokenType.Return))
+                node = Return();
+            else
+                node = Assignment();
 
             Consume(TokenType.Semicolon, "';' Expected");
             return node;
         }
 
-
+        private Node Return()
+        {
+            return new Node.Return(Expression());
+        }
         #endregion
 
         #region Expressions
@@ -349,6 +358,11 @@ namespace Rhyme.Parser
             }
             return callee;
         }
+
+        bool MatchLiteral()
+        {
+            return Match(TokenType.Integer) || Match(TokenType.String) || Match(TokenType.Float);
+        }
         // primary    : | IDENTIFIER | '(' expression ')';
         private Node Primary()
         {
@@ -356,7 +370,7 @@ namespace Rhyme.Parser
             if (Match(TokenType.Identifier))
                 return new Node.Binding(_current.Previous.Value);
 
-            if (Match(TokenType.Integer) || Match(TokenType.String))
+            if (MatchLiteral())
                 return new Node.Literal(_current.Previous.Value);
 
             // Statement-like
@@ -366,7 +380,7 @@ namespace Rhyme.Parser
             if (Match(TokenType.If))
                 return If();
 
-            Error(_current.Value.Position, "A expression expected!");
+            Error(_current.Value.Position, "An expression expected!");
             return null;
         }
 
@@ -387,6 +401,10 @@ namespace Rhyme.Parser
         {
             HadError = true;
             _errors.Add(new PassError(at.Line, at.Start, at.Length, message));
+
+            // Error recovery!
+            while (_current.Value.Type != TokenType.Semicolon)
+                _current = _current.Next;
         }
     }
 }
