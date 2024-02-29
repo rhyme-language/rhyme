@@ -98,8 +98,10 @@ namespace Rhyme.Parser
         public static readonly RhymeType F64 = new Numeric("f64", Numeric.NumericKind.F64);
                        
         public static readonly RhymeType Str = new Primitive("str");
+        public static readonly RhymeType Bol = new Primitive("Bol");
 
-    
+
+
         public static RhymeType FromToken(Token token)
         {
             switch(token.Type)
@@ -117,6 +119,7 @@ namespace Rhyme.Parser
                 case TokenType.F32: return F32;
                 case TokenType.F64: return F64;
                 case TokenType.Str: return Str;
+                case TokenType.Bol: return Bol;
 
                 case TokenType.Identifier: return new Reference(token.Lexeme);
                 default : return RhymeType.NoneType;

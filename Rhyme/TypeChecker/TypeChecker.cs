@@ -63,6 +63,10 @@ namespace Rhyme.TypeChecker
                 case TokenType.Float:
                     return RhymeType.F32;
 
+                case TokenType.True:
+                case TokenType.False:
+                    return RhymeType.Bol;
+
                 default:
                     return RhymeType.NoneType;
             }

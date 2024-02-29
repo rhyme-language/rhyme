@@ -1,8 +1,8 @@
 ﻿i32(i32 a, i32 b) sum = {
+    dprint_int(a + b);
     return a + b;
 };
 void() main = {
-    i32 x = 6;
-    dprint_int(x);
-    dprint_int(sum(1, 2));
+    bol i_love_roro = true;
+    sum(1,2);
 };

@@ -27,10 +27,12 @@ namespace Rhyme.Scanner
             { "var", TokenType.Var },
 
             // Primitive Types
-            { "void", TokenType.Void }, {"str", TokenType.Str },
+            { "void", TokenType.Void }, {"str", TokenType.Str }, {"bol", TokenType.Bol }, 
             { "u8", TokenType.U8 }, { "u16", TokenType.U16 }, { "u32", TokenType.U32 }, { "u64", TokenType.U64 },
             { "i8", TokenType.I8 }, { "i16", TokenType.I16 }, { "i32", TokenType.I32 }, { "i64", TokenType.I64 },
 
+            // Literals
+            {"true", TokenType.True}, {"false", TokenType.False}, {"null", TokenType.Null}
         };
 
         public Scanner(string source)

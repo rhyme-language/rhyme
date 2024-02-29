@@ -114,6 +114,7 @@ namespace Rhyme.Parser
                 case TokenType.F32:
                 case TokenType.F64:
                 case TokenType.Str:
+                case TokenType.Bol:
                     Advance();
 
                     returnType = RhymeType.FromToken(token);
@@ -210,8 +211,15 @@ namespace Rhyme.Parser
                 return null;
             }
 
-            identifierToken = Consume(TokenType.Identifier, "Expects a binding name.");
-            return new Declaration(type, identifierToken.Lexeme);
+            if(_current.Value.Type != TokenType.Identifier)
+            {
+                // Normal argument call, rollback!
+                _current = current;
+                return null;
+            }
+
+            return new Declaration(type, Consume(TokenType.Identifier, "Expects a binding name.").Lexeme);
+             
         }
 
         private Node Statement()
@@ -361,7 +369,8 @@ namespace Rhyme.Parser
 
         bool MatchLiteral()
         {
-            return Match(TokenType.Integer) || Match(TokenType.String) || Match(TokenType.Float);
+            return Match(TokenType.Integer) || Match(TokenType.String) || Match(TokenType.Float)
+                || Match(TokenType.True) || Match(TokenType.False);
         }
         // primary    : | IDENTIFIER | '(' expression ')';
         private Node Primary()

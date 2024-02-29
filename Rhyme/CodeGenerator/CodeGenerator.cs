@@ -40,6 +40,7 @@ namespace Rhyme.CodeGenerator
             { RhymeType.I16, LLVMTypeRef.Int16 },
             { RhymeType.I32, LLVMTypeRef.Int32 },
             { RhymeType.I64, LLVMTypeRef.Int64 },
+            { RhymeType.Bol, LLVMTypeRef.Int1 }, // or int8 for alignment??
         };
 
 
@@ -82,6 +83,10 @@ namespace Rhyme.CodeGenerator
                 case TokenType.Integer:
                     return LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, Convert.ToUInt64(token.Value));
 
+                case TokenType.True:
+                    return LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, 1);
+                case TokenType.False:
+                    return LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, 0);
             }
             return null;
         }

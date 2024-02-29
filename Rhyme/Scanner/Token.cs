@@ -15,7 +15,7 @@ namespace Rhyme.Scanner
 
         Hash, Caret, Ampersand, Percent, Dollar,
 
-        Identifier, Integer, Float, String,
+        Identifier, 
 
         Plus, Minus, Asterisk, Slash, Bang,
 
@@ -25,10 +25,11 @@ namespace Rhyme.Scanner
         // Keywords
         If, Else, For, While, Using, Var, Return,
 
-
+        // Literals
+        True, False, Null, Integer, Float, String, Hex, Bin, Octa,
         // Types
         Void,
-        U8, U16, U32, U64, I8, I16, I32, I64, F32, F64, Str,
+        U8, U16, U32, U64, I8, I16, I32, I64, F32, F64, Str, Bol,
         None,
     }
 
