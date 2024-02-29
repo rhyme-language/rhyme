@@ -26,7 +26,7 @@ namespace Rhyme.Scanner
         If, Else, For, While, Using, Var, Return,
 
         // Literals
-        True, False, Null, Integer, Float, String, Hex, Bin, Octa,
+        True, False, Null, Integer, Float, String,
         // Types
         Void,
         U8, U16, U32, U64, I8, I16, I32, I64, F32, F64, Str, Bol,

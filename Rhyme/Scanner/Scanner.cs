@@ -289,9 +289,49 @@ namespace Rhyme.Scanner
         Token Number()
         {
             int start = _pos;
+            var type = TokenType.Integer;
+
+            if (Current == '0')
+            {
+                var _base = 0;
+                Advance();
+
+                switch(Current)
+                {
+                    case 'b':
+                        Advance();
+                        while (!AtEnd && (Current == '0' || Current == '1'))
+                            Advance();
+
+                        _base = 2;
+                        break;
+                    case 'o':
+                        Advance();
+                        while (!AtEnd && (Current >= '0' || Current <= '7'))
+                            Advance();
+
+                        _base = 8;
+                        break;
+                    case 'x':
+                        Advance();
+
+                        while (!AtEnd && char.IsDigit(Current) || (char.ToLower(Current) >= 'a' && char.ToLower(Current) <= 'f'))
+                            Advance();
+
+                        _base = 16;
+                        break;
+                    default:
+                        break;
+                }
+                _pos--;
+
+                var len = _pos - start + 1;
+                var lexeme = _source.Substring(start, len);
+                return new Token(lexeme, TokenType.Integer, new Position(_line, start, _pos), Convert.ToInt32(lexeme.Remove(0,2), _base));
+
+            }
             Advance();
 
-            var type = TokenType.Integer;
 
             bool dot = false;
             while ((!AtEnd && char.IsNumber(Current)) || Current == '.')

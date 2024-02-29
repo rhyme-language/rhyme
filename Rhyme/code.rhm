@@ -2,7 +2,10 @@
     dprint_int(a + b);
     return a + b;
 };
+
 void() main = {
-    bol i_love_roro = true;
-    sum(1,2);
+    i32 hex = 0xFF;
+    i32 bin = 0b1011;
+    dprint_int(hex);
+    dprint_int(bin);
 };
