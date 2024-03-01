@@ -104,6 +104,9 @@ namespace Rhyme.CodeGenerator
 
                 case TokenType.EqualEqual:
                     return _builder.BuildICmp(LLVMIntPredicate.LLVMIntEQ, lhs, rhs);
+                case TokenType.NotEqual:
+                    return _builder.BuildICmp(LLVMIntPredicate.LLVMIntNE, lhs, rhs);
+                    
             }
             return null;
 
@@ -237,10 +240,9 @@ namespace Rhyme.CodeGenerator
         }
         public object Visit(Node.Assignment assignment)
         {
-            throw new NotImplementedException();
             return _builder.BuildStore(
-                GetValue(((Node.Binding)assignment.Assignee).Identifier.Lexeme), 
-                (LLVMValueRef)GenerateNode(assignment.Expression)
+                (LLVMValueRef)GenerateNode(assignment.Expression),
+                GetValue(((Node.Binding)assignment.Assignee).Identifier.Lexeme) 
             );
         }
 

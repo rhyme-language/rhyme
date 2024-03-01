@@ -1,7 +1,8 @@
 ﻿void() main = {
-    i32 age = 18;
-    while age == 18 {
-        dprint("loop");
+    i32 i = 1;
+    while i != 10 {
+        dprint_int(i);
+        i = i + 1;
     };
     dprint("Done");
 };
