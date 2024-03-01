@@ -146,7 +146,7 @@ namespace Rhyme.TypeChecker
         }
         public RhymeType Visit(Node.If ifStmt)
         {
-            throw new NotImplementedException();
+            return RhymeType.Bol;
         }
 
         public RhymeType Visit(Node.Assignment assignment)
@@ -209,6 +209,17 @@ namespace Rhyme.TypeChecker
                                 return (false, RhymeType.NoneType);
                         }
                     }
+                    break;
+
+                // Comparison
+                case TokenType.EqualEqual:
+                case TokenType.NotEqual:
+                case TokenType.GreaterThan:
+                case TokenType.GreaterEqual:
+                case TokenType.SmallerEqual:
+                case TokenType.SmallerThan:
+                    if (lhs == rhs)
+                        return (true, RhymeType.Bol);
                     break;
                 default:
                     return (false, RhymeType.NoneType);

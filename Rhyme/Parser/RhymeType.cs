@@ -98,7 +98,7 @@ namespace Rhyme.Parser
         public static readonly RhymeType F64 = new Numeric("f64", Numeric.NumericKind.F64);
                        
         public static readonly RhymeType Str = new Primitive("str");
-        public static readonly RhymeType Bol = new Primitive("Bol");
+        public static readonly RhymeType Bol = new Primitive("bol");
 
 
 

@@ -19,6 +19,7 @@ namespace Rhyme.Scanner
 
         Dictionary<string, TokenType> _keywords = new Dictionary<string, TokenType>() {
             { "if", TokenType.If },
+            {"else", TokenType.Else },
             { "using", TokenType.Using },
             { "for", TokenType.For },
             { "while", TokenType.While },

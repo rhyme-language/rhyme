@@ -408,11 +408,12 @@ namespace Rhyme.Parser
 
         void Error(Position at,  string message)
         {
+            Console.WriteLine(message);
             HadError = true;
             _errors.Add(new PassError(at.Line, at.Start, at.Length, message));
 
             // Error recovery!
-            while (_current.Value.Type != TokenType.Semicolon)
+            while (_current.Next != null && _current.Value.Type != TokenType.Semicolon)
                 _current = _current.Next;
         }
     }

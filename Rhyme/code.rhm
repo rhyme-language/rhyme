@@ -1,11 +1,9 @@
-﻿i32(i32 a, i32 b) sum = {
-    dprint_int(a + b);
-    return a + b;
-};
-
-void() main = {
-    i32 hex = 0xFF;
-    i32 bin = 0b1011;
-    dprint_int(hex);
-    dprint_int(bin);
+﻿void() main = {
+    i32 age = 18;
+    if age == 18 {
+        dprint("Nice");
+    }else{
+        dprint("Not");
+    };
+    dprint("Done");
 };

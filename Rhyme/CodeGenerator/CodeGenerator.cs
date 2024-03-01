@@ -46,9 +46,6 @@ namespace Rhyme.CodeGenerator
 
         bool _global = true;
 
-      
-
-
         Dictionary<string, Action<Node.FunctionCall>> _debugBuiltIns = new Dictionary<string, Action<Node.FunctionCall>>();
 
 
@@ -100,6 +97,13 @@ namespace Rhyme.CodeGenerator
             {
                 case TokenType.Plus:
                     return _builder.BuildAdd(lhs, rhs);
+                case TokenType.Minus:
+                    return _builder.BuildSub(lhs, rhs);
+                case TokenType.Asterisk:
+                    return _builder.BuildMul(lhs, rhs);
+
+                case TokenType.EqualEqual:
+                    return _builder.BuildICmp(LLVMIntPredicate.LLVMIntEQ, lhs, rhs);
             }
             return null;
 
@@ -112,7 +116,12 @@ namespace Rhyme.CodeGenerator
 
         public object Visit(Node.Block blockExpr)
         {
-            throw new NotImplementedException();
+            foreach(var stmt in blockExpr.ExpressionsStatements)
+            {
+                GenerateNode(stmt);
+            }
+
+            return null;
         }
 
         public object Visit(Node.BindingDeclaration bindingDecl)
@@ -178,7 +187,30 @@ namespace Rhyme.CodeGenerator
 
         public object Visit(Node.If ifStmt)
         {
-            throw new NotImplementedException();
+            var condition = (LLVMValueRef)GenerateNode(ifStmt.condition);
+
+            var then_block = _module.LastFunction.AppendBasicBlock("if");
+            var end = _module.LastFunction.AppendBasicBlock("end");
+            LLVMBasicBlockRef else_block = end;
+
+            _builder.BuildCondBr(condition, then_block, else_block);
+
+            _builder.PositionAtEnd(then_block);
+            GenerateNode(ifStmt.thenBody);
+            _builder.BuildBr(end);
+
+            if(ifStmt.elseBody != null)
+            {
+                else_block = _module.LastFunction.AppendBasicBlock("else");
+                _builder.PositionAtEnd(else_block);
+                
+                GenerateNode(ifStmt.elseBody);
+                _builder.BuildBr(end);
+            }
+
+
+            _builder.PositionAtEnd(end);
+            return condition;
         }
 
         public object Visit(Node.Assignment assignment)
@@ -289,7 +321,7 @@ namespace Rhyme.CodeGenerator
         {
             _debugBuiltIns.Add("dprint", fc =>
             {
-                _builder.BuildCall2(_functions["printf"].typeRef, _functions["printf"].valueRef, new[] { (LLVMValueRef)GenerateNode(fc.Args[0]) }, "printf");
+                _builder.BuildCall2(_functions["puts"].typeRef, _functions["puts"].valueRef, new[] { (LLVMValueRef)GenerateNode(fc.Args[0]) }, "puts");
 
             });
 

@@ -133,7 +133,12 @@ namespace Rhyme.Resolver
 
         public object Visit(Node.If ifStmt)
         {
-            throw new NotImplementedException();
+            ResolveNode(ifStmt.condition);
+            ResolveNode(ifStmt.thenBody);
+            if (ifStmt.elseBody != null)
+                ResolveNode(ifStmt.elseBody);
+
+            return null;
         }
 
         public object Visit(Node.Assignment assignment)
