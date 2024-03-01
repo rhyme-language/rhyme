@@ -149,6 +149,11 @@ namespace Rhyme.TypeChecker
             return RhymeType.Bol;
         }
 
+        public RhymeType Visit(Node.While whileStmt)
+        {
+            return RhymeType.I32;
+        }
+
         public RhymeType Visit(Node.Assignment assignment)
         {
             var rhs = check(assignment.Expression);

@@ -28,6 +28,7 @@ namespace Rhyme.Parser
             T Visit(Block blockExpr);
             T Visit(BindingDeclaration bindingDecl);
             T Visit(If ifStmt);
+            T Visit(While whileStmt);
             T Visit(Return returnStmt);
             T Visit(Assignment assignment);
             T Visit(FunctionCall callExpr);
@@ -111,6 +112,11 @@ namespace Rhyme.Parser
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
+        public record While(Node Condition, Node LoopBody) :  Node
+        {
+            public Position Position => Position.NonePosition;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
         public record Return(Node RetrunExpression) : Node
         {
             public Position Position => RetrunExpression.Position;

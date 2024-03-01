@@ -265,6 +265,12 @@ namespace Rhyme.Parser
 
         }
 
+        private Node While()
+        {
+            Node condition = Expression();
+            Node body = Expression();
+            return new Node.While(condition, body);
+        }
 
         private Node Assignment()
         {
@@ -388,6 +394,9 @@ namespace Rhyme.Parser
 
             if (Match(TokenType.If))
                 return If();
+
+            if (Match(TokenType.While))
+                return While();
 
             Error(_current.Value.Position, "An expression expected!");
             return null;

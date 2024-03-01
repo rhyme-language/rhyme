@@ -190,8 +190,8 @@ namespace Rhyme.CodeGenerator
             var condition = (LLVMValueRef)GenerateNode(ifStmt.condition);
 
             var then_block = _module.LastFunction.AppendBasicBlock("if");
+            var else_block = _module.LastFunction.AppendBasicBlock("else");
             var end = _module.LastFunction.AppendBasicBlock("end");
-            LLVMBasicBlockRef else_block = end;
 
             _builder.BuildCondBr(condition, then_block, else_block);
 
@@ -199,23 +199,49 @@ namespace Rhyme.CodeGenerator
             GenerateNode(ifStmt.thenBody);
             _builder.BuildBr(end);
 
-            if(ifStmt.elseBody != null)
-            {
-                else_block = _module.LastFunction.AppendBasicBlock("else");
-                _builder.PositionAtEnd(else_block);
-                
+            _builder.PositionAtEnd(else_block);
+
+            if (ifStmt.elseBody != null)
+            {                
                 GenerateNode(ifStmt.elseBody);
-                _builder.BuildBr(end);
             }
+
+            _builder.BuildBr(end);
 
 
             _builder.PositionAtEnd(end);
             return condition;
         }
 
+        public object Visit(Node.While whileStmt)
+        {
+            var cond_block = _module.LastFunction.AppendBasicBlock("cond_block");
+            var loop_block = _module.LastFunction.AppendBasicBlock("loop");
+            var end = _module.LastFunction.AppendBasicBlock("break");
+
+            _builder.BuildBr(cond_block);
+
+            // Condition Block
+            _builder.PositionAtEnd(cond_block);
+            var condition = (LLVMValueRef)GenerateNode(whileStmt.Condition);
+            _builder.BuildCondBr(condition, loop_block, end);
+
+            // Loop Block
+            _builder.PositionAtEnd(loop_block);
+            GenerateNode(whileStmt.LoopBody);
+            _builder.BuildBr(cond_block);
+
+            // Exit
+            _builder.PositionAtEnd(end);
+            return condition;
+        }
         public object Visit(Node.Assignment assignment)
         {
             throw new NotImplementedException();
+            return _builder.BuildStore(
+                GetValue(((Node.Binding)assignment.Assignee).Identifier.Lexeme), 
+                (LLVMValueRef)GenerateNode(assignment.Expression)
+            );
         }
 
 

@@ -1,9 +1,7 @@
 ﻿void() main = {
     i32 age = 18;
-    if age == 18 {
-        dprint("Nice");
-    }else{
-        dprint("Not");
+    while age == 18 {
+        dprint("loop");
     };
     dprint("Done");
 };

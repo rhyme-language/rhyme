@@ -141,6 +141,13 @@ namespace Rhyme.Resolver
             return null;
         }
 
+        public object Visit(Node.While whileStmt)
+        {
+            ResolveNode(whileStmt.Condition);
+            ResolveNode(whileStmt.LoopBody);
+
+            return null;
+        }
         public object Visit(Node.Assignment assignment)
         {
             return null;
