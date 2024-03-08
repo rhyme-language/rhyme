@@ -1,0 +1,3 @@
+﻿extern i32(i32 a, i32 b) sum = {
+    return a + b;
+};

@@ -139,6 +139,7 @@ namespace Rhyme.CodeGenerator
 
                 var return_type = LLVMTypeFromRhymeType(func_type.ReturnType);
                 var params_type = func_type.Parameters.Select(param => LLVMTypeFromRhymeType(param.Type)).ToArray();
+
                 var llvm_func_type = LLVMTypeRef.CreateFunction(return_type, params_type);
                 var llvm_function = _module.AddFunction(func_name, llvm_func_type);
                 _builder.PositionAtEnd(llvm_function.AppendBasicBlock("entry"));
@@ -256,6 +257,7 @@ namespace Rhyme.CodeGenerator
 
                 if (_debugBuiltIns.ContainsKey(func_name)){
                     _debugBuiltIns[func_name](callExpr);
+
                     return null;
                 }
 
@@ -360,7 +362,6 @@ namespace Rhyme.CodeGenerator
 
                 _builder.BuildCall2(_functions["printf"].typeRef, _functions["printf"].valueRef, args.ToArray(), "printf");
             });
-
         }
         void DefineBuiltIns()
         {
@@ -393,6 +394,16 @@ namespace Rhyme.CodeGenerator
         {
             _builder.BuildRet((LLVMValueRef)GenerateNode(returnStmt.RetrunExpression));
             return null;
+        }
+
+        public object Visit(Node.Get member)
+        {
+            throw new NotImplementedException();
+        }
+
+        public object Visit(Node.Directive directive)
+        {
+            throw new NotImplementedException();
         }
 
         #endregion

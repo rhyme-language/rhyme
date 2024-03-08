@@ -24,6 +24,7 @@ namespace Rhyme.Scanner
             { "for", TokenType.For },
             { "while", TokenType.While },
             { "return", TokenType.Return },
+            { "extern", TokenType.Extern },
 
             { "var", TokenType.Var },
 
@@ -105,6 +106,8 @@ namespace Rhyme.Scanner
 
                     case '+': token_type = TokenType.Plus; break;
                     case '-': token_type = TokenType.Minus; break;
+                    case '%': token_type = TokenType.Percent; break;
+
                     case '#': token_type = TokenType.Hash; break;
 
                     case ',': token_type = TokenType.Comma; break;

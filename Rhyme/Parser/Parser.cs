@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.CommandLine;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -80,13 +81,9 @@ namespace Rhyme.Parser
         private Node.CompilationUnit CompilationUnit()
         {
             var units = new List<Node>();
-
             do
-            {
-                if (_current.Value.Type == TokenType.Using)
-                    units.Add(UsingStatement());
-                else
-                    units.Add(Binding());
+            { 
+                units.Add(Binding(Match(TokenType.Extern)));
             } while (!AtEnd());
 
             return new Node.CompilationUnit(units);
@@ -154,9 +151,9 @@ namespace Rhyme.Parser
         {
             throw new NotImplementedException();
         }
-        private Node Binding()
-        {
 
+        private Node Binding(bool external)
+        {
             Declaration decl = Declaration();
 
             if (decl == null)
@@ -168,13 +165,14 @@ namespace Rhyme.Parser
                 expr = Expression();
             }
             Consume(TokenType.Semicolon, "Expects a ';' after a binding value");
-            return new Node.BindingDeclaration(decl, expr);
-
+            return new Node.BindingDeclaration(decl, expr, external);
         }
 
         private Declaration Declaration()
         {
+            
             var current = _current;
+            
             RhymeType type = Type();
 
             if (type == RhymeType.NoneType)
@@ -225,7 +223,7 @@ namespace Rhyme.Parser
         private Node Statement()
         {
 
-            var node = Binding();
+            var node = Binding(false);
 
             if (node != null)
                 return node;
@@ -271,7 +269,35 @@ namespace Rhyme.Parser
             Node body = Expression();
             return new Node.While(condition, body);
         }
+        private Node Get()
+        {
+            var accessed = Primary();
 
+            while (Match(TokenType.Dot))
+            {
+                var identifier = Consume(TokenType.Identifier, "Expects an Identifier");
+                accessed = new Node.Get(accessed, identifier);
+            }
+
+            return accessed;
+        }
+
+        private Node Directive()
+        {
+            var identifer = Consume(TokenType.Identifier, "Expects a directive name");
+            Consume(TokenType.LeftParen, "'(' Expected");
+
+            List<Node> args = new List<Node>();
+            if (_current.Value.Type != TokenType.RightParen)
+            {
+                do
+                {
+                    args.Add(Expression());
+                } while (Match(TokenType.Comma));
+            }
+            Consume(TokenType.RightParen, "Expect ')' after arguments.");
+            return new Node.Directive(identifer, args.ToArray());
+        }
         private Node Assignment()
         {
             var lhs = Equality();
@@ -355,7 +381,7 @@ namespace Rhyme.Parser
 
         private Node Call()
         {
-            var callee = Primary();
+            var callee = Get();
 
             if (Match(TokenType.LeftParen))
             {
@@ -381,6 +407,7 @@ namespace Rhyme.Parser
         // primary    : | IDENTIFIER | '(' expression ')';
         private Node Primary()
         {
+            Node node = null;
 
             if (Match(TokenType.Identifier))
                 return new Node.Binding(_current.Previous.Value);
@@ -398,8 +425,13 @@ namespace Rhyme.Parser
             if (Match(TokenType.While))
                 return While();
 
-            Error(_current.Value.Position, "An expression expected!");
-            return null;
+            // Compiler Directive
+            if (Match(TokenType.Percent))
+                return Directive();
+
+            else
+                Error(_current.Value.Position, "An expression expected!");
+            return node;
         }
 
         private Node Block()

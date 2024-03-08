@@ -24,6 +24,7 @@ namespace Rhyme.Scanner
 
         // Keywords
         If, Else, For, While, Using, Var, Return,
+        Extern,
 
         // Literals
         True, False, Null, Integer, Float, String,

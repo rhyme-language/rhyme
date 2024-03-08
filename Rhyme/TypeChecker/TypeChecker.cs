@@ -291,5 +291,15 @@ namespace Rhyme.TypeChecker
             return check(returnStmt.RetrunExpression);
 
         }
+
+        public RhymeType Visit(Node.Get member)
+        {
+            throw new NotImplementedException();
+        }
+
+        public RhymeType Visit(Node.Directive directive)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

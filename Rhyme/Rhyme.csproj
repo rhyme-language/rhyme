@@ -9,9 +9,13 @@
 
   <ItemGroup>
     <PackageReference Include="LLVMSharp" Version="16.0.0" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="external.rhm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="code.rhm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

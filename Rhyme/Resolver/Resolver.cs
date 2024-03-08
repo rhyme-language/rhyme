@@ -8,6 +8,7 @@ using Rhyme.Scanner;
 using Rhyme.Parser;
 using System.Xml.Linq;
 using LLVMSharp;
+using System.Xml.Serialization;
 
 namespace Rhyme.Resolver
 {
@@ -187,6 +188,40 @@ namespace Rhyme.Resolver
         public object Visit(Node.Return returnStmt)
         {
             ResolveNode(returnStmt.RetrunExpression);
+            return null;
+        }
+
+        public object Visit(Node.Get member)
+        {
+            throw new NotImplementedException();
+        }
+
+        public object Visit(Node.Directive directive)
+        {
+            if(directive.Identifier.Lexeme == "import")
+            {
+                if (directive.Arguments.Length != 1)
+                {
+                    Error(directive.Position, "Directive 'import' expects 1 argument");
+                    return null;
+                }
+
+                if (directive.Arguments[0] is Node.Literal import_file && import_file.ValueToken.Value is string file_name)
+                {
+                    if (!File.Exists(file_name))
+                    {
+                        Error(directive.Position, $"File '{file_name}' doesn't exist");
+                        return null;
+                    }
+
+                    Import(file_name);
+
+                }
+                else
+                {
+                    Error(directive.Position, $"Directive 'import' expects a str for the file path");
+                }
+            }
             return null;
         }
     }

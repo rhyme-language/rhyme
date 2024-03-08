@@ -29,13 +29,16 @@ namespace Rhyme.Parser
             T Visit(BindingDeclaration bindingDecl);
             T Visit(If ifStmt);
             T Visit(While whileStmt);
+            T Visit(Get member);
             T Visit(Return returnStmt);
             T Visit(Assignment assignment);
             T Visit(FunctionCall callExpr);
             T Visit(Binding binding);
             T Visit(Grouping grouping);
-            T Visit(CompilationUnit compilationUnit);
 
+            T Visit(Directive directive);
+            T Visit(CompilationUnit compilationUnit);
+           
         }
         public T Accept<T>(IVisitor<T> visitor);
         public Position Position { get; }
@@ -80,7 +83,7 @@ namespace Rhyme.Parser
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record BindingDeclaration(Declaration Declaration, Node Expression) : Node
+        public record BindingDeclaration(Declaration Declaration, Node Expression, bool Export) : Node
         {
             public Position Position => Expression.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
@@ -115,6 +118,18 @@ namespace Rhyme.Parser
         public record While(Node Condition, Node LoopBody) :  Node
         {
             public Position Position => Position.NonePosition;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+
+        public record Get(Node Accessed, Token Member) : Node
+        {
+            public Position Position => Position.NonePosition;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+
+        public record Directive(Token Identifier, params Node[] Arguments) : Node
+        {
+            public Position Position => Identifier.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
         public record Return(Node RetrunExpression) : Node
