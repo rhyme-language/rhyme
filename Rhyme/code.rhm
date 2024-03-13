@@ -1,3 +1,5 @@
-﻿void() main = {
+﻿module woof;
+
+void() main = {
    dprint("amoooor");
 };

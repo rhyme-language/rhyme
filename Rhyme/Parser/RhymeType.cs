@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using Rhyme.Scanner;
 
-namespace Rhyme.Parser
+namespace Rhyme.Parsing
 {
     internal abstract class RhymeType
     {

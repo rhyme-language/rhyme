@@ -4,17 +4,17 @@ using System.CommandLine;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using System.Xml.Serialization;
 using Rhyme.Scanner;
 
-namespace Rhyme.Parser
+namespace Rhyme.Parsing
 {
     /// <summary>
     /// Parser compiler pass: <br/>
     /// - Parses the source code given its <see cref="Token"/>s. <br/>
     /// - Generating the abstract syntax tree (AST). <br/>
     /// - Reports syntactical errors. <br/>
-    /// - Annotates tree <see cref="Node"/>s with <see cref="Rhyme.Parser.RhymeType"/>s. <br/>
+    /// - Annotates tree <see cref="Node"/>s with <see cref="Rhyme.Parsing.RhymeType"/>s. <br/>
     /// </summary>
     internal class Parser : ICompilerPass
     {
@@ -81,9 +81,23 @@ namespace Rhyme.Parser
         private Node.CompilationUnit CompilationUnit()
         {
             var units = new List<Node>();
+
+            if (!Match(TokenType.Module))
+            {
+                Error(_current.Value.Position, "Expects a module declaration");
+                return null;
+            }
+
+            var module_identifier = Consume(TokenType.Identifier, "Expects a module name");
+            Consume(TokenType.Semicolon, "';' Expected");
+            units.Add(new Node.Module(module_identifier));
+
             do
-            { 
-                units.Add(Binding(Match(TokenType.Extern)));
+            {
+                if (Match(TokenType.Import))
+                    units.Add(Import());
+                else
+                    units.Add(Binding(Match(TokenType.Extern)));
             } while (!AtEnd());
 
             return new Node.CompilationUnit(units);
@@ -166,6 +180,13 @@ namespace Rhyme.Parser
             }
             Consume(TokenType.Semicolon, "Expects a ';' after a binding value");
             return new Node.BindingDeclaration(decl, expr, external);
+        }
+
+        private Node Import()
+        {
+            var module = Consume(TokenType.Identifier, "Expects a module name");
+            Consume(TokenType.Semicolon, "';' Expected");
+            return new Node.Import(module);
         }
 
         private Declaration Declaration()

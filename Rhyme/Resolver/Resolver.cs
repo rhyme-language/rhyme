@@ -5,14 +5,16 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Rhyme.Scanner;
-using Rhyme.Parser;
+using Rhyme.Parsing;
 using System.Xml.Linq;
 using LLVMSharp;
 using System.Xml.Serialization;
 
-namespace Rhyme.Resolver
+namespace Rhyme.Resolving
 {
     internal record Function(string Name, RhymeType.Function Type, Declaration[] Locals);
+
+    internal record ModuleInfo(string Name, IReadOnlySymbolTable SymbolTable);
 
     internal class Resolver : Node.IVisitor<object>, ICompilerPass
     {
@@ -32,6 +34,7 @@ namespace Rhyme.Resolver
         }
 
         SymbolTable _symbolTable = new SymbolTable();
+        string _moduleName = "UNNAMED_MODULE";
 
         public Resolver()
         {
@@ -55,11 +58,11 @@ namespace Rhyme.Resolver
                 "dprint_flt"
             ));
         }
-        public SymbolTable Resolve(Node.CompilationUnit program)
+        public ModuleInfo Resolve(Node.CompilationUnit program)
         {
             ResolveNode(program);
 
-            return _symbolTable;
+            return new ModuleInfo(_moduleName, _symbolTable);
         }
 
         void ResolveNode(Node node)
@@ -222,6 +225,17 @@ namespace Rhyme.Resolver
                     Error(directive.Position, $"Directive 'import' expects a str for the file path");
                 }
             }
+            return null;
+        }
+
+        public object Visit(Node.Import importStmt)
+        {
+            throw new NotImplementedException();
+        }
+
+        public object Visit(Node.Module moduleDecl)
+        {
+            _moduleName = moduleDecl.Identifier.Lexeme;
             return null;
         }
     }

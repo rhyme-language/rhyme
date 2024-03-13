@@ -1,4 +1,4 @@
-﻿using Rhyme.Parser;
+﻿using Rhyme.Parsing;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,12 +6,12 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Rhyme.Scanner;
-using Rhyme.Parser;
-using Rhyme.Resolver;
+using Rhyme.Parsing;
+using Rhyme.Resolving;
 using System.Collections;
 using LLVMSharp;
 
-namespace Rhyme.TypeChecker
+namespace Rhyme.TypeSystem
 {
     
     internal class TypeChecker : Node.IVisitor<RhymeType>, ICompilerPass
@@ -300,6 +300,17 @@ namespace Rhyme.TypeChecker
         public RhymeType Visit(Node.Directive directive)
         {
             throw new NotImplementedException();
+        }
+
+        public RhymeType Visit(Node.Import importStmt)
+        {
+            throw new NotImplementedException();
+        }
+
+        public RhymeType Visit(Node.Module moduleDecl)
+        {
+            //throw new NotImplementedException();
+            return RhymeType.NoneType;
         }
     }
 }
