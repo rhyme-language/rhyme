@@ -1,3 +1,5 @@
-﻿extern i32(i32 a, i32 b) sum = {
-    return a + b;
+﻿module woof;
+
+void() main = {
+    dprint("from external.rhm");
 };

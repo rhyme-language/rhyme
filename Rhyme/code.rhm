@@ -1,5 +1,5 @@
-﻿nsp external = %import("external.rhm");
+﻿module woof;
 
 void() main = {
-   external.sum(1, 2);
+    dprint("from code.rhm");
 };

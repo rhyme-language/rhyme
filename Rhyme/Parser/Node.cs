@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 using Rhyme.Scanner;
 
-namespace Rhyme.Parser
+namespace Rhyme.Parsing
 {
     internal record Declaration(RhymeType Type, string Identifier);
 
@@ -35,7 +35,8 @@ namespace Rhyme.Parser
             T Visit(FunctionCall callExpr);
             T Visit(Binding binding);
             T Visit(Grouping grouping);
-
+            T Visit(Import importStmt);
+            T Visit(Module moduleDecl);
             T Visit(Directive directive);
             T Visit(CompilationUnit compilationUnit);
            
@@ -127,6 +128,16 @@ namespace Rhyme.Parser
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
+        public record Import(Token Identifier) : Node
+        {
+            public Position Position => Identifier.Position;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+        public record Module(Token Identifier) : Node
+        {
+            public Position Position => Identifier.Position;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
         public record Directive(Token Identifier, params Node[] Arguments) : Node
         {
             public Position Position => Identifier.Position;

@@ -4,45 +4,29 @@
     Author: Zeyad Ahmed
  */
 
-#define DEBUG_TOKENS
-#define PARSER
-#define RESOLVER
-#define TYPE_CHECKER
-#define CODE_GENERATOR
-#define RUN
-
 using System.Diagnostics;
+using System.CommandLine;
+using System.CommandLine.Invocation;
 
 using Rhyme;
 using Rhyme.Scanner;
-using Rhyme.Parser;
-using Rhyme.Resolver;
-using Rhyme.TypeChecker;
-using Rhyme.CodeGenerator;
+using Rhyme.Parsing;
+using Rhyme.Resolving;
+using Rhyme.TypeSystem;
+using Rhyme.CodeGeneration;
 
-if(args.Length != 1)
+var console_options = CommandLineInterface.GetParametersFromArguments(args);
+
+var compiler = new RhymeCompiler();
+
+compiler.Parameters = new CompilerParameters
 {
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine("Error wrong input");
-    Console.ResetColor();
-    Console.WriteLine("Usage: rhyme [file]");
-    return;
-}
+    ExecutableName = console_options.OutputFile.FullName,
+};
 
-var source = File.ReadAllText("code.rhm");
+compiler.CompileFromFile(console_options.SourceFiles.Select(f => f.FullName).ToArray());
 
-var stopwatch = new Stopwatch();
-stopwatch.Start();
-
-Scanner scanner = Scanner.FromFile("code.rhm");
-
-#if DEBUG_TOKENS
-foreach (var token in scanner.Scan())
-{
-    Debug.WriteLine(token);
-}
-#endif
-
+/*
 string[] lines = source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
 void ReportError(PassError error)
@@ -66,86 +50,4 @@ void ReportError(PassError error)
     Console.ResetColor();
     Console.WriteLine();
 }
-
-if (scanner.HadError)
-{
-    foreach (var error in scanner.Errors)
-    {
-        ReportError(error);
-    }
-    return;
-}
-
-#if PARSER
-Parser parser = new Parser(scanner.Scan());
-var root = parser.Parse();
-
-if (parser.HadError)
-{
-    foreach (var error in parser.Errors)
-    {
-        ReportError(error);
-    }
-    return;
-}
-#endif
-
-#if RESOLVER
-Resolver resolver = new Resolver();
-var symbol_table = resolver.Resolve(root);
-
-if (resolver.HadError)
-{
-    foreach (var error in resolver.Errors)
-    {
-        ReportError(error);
-    }
-    return;
-}
-#endif
-
-#if TYPE_CHECKER
-TypeChecker type_checker = new TypeChecker(symbol_table);
-type_checker.Check(root);
-
-if (type_checker.HadError)
-{
-    foreach (var error in type_checker.Errors)
-    {
-        ReportError(error);
-    }
-    return;
-}
-
-#endif
-
-#if CODE_GENERATOR
-CodeGenerator code_generator = new CodeGenerator(root, symbol_table);
-var ll_code = code_generator.Generate();
-
-if (code_generator.HadError)
-{
-    foreach (var error in code_generator.Errors)
-    {
-        ReportError(error);
-    }
-    return;
-}
-
-#if RUN
-Debug.WriteLine(ll_code);
-File.WriteAllText("output.ll", ll_code);
-var clang_process = Process.Start(new ProcessStartInfo("clang", "output.ll -o program.exe"));
-clang_process.WaitForExit();
-
-stopwatch.Stop();
-Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
-Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
-Console.WriteLine("Running...\n");
-Thread.Sleep(500);
-Console.Clear();
-Process.Start("program.exe");
-#endif
-#endif
-
-
+*/

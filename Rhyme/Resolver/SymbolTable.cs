@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Rhyme.Scanner;
-using Rhyme.Parser;
+using Rhyme.Parsing;
 
-namespace Rhyme.Resolver
+namespace Rhyme.Resolving
 {
 
     internal enum ResolutionResult

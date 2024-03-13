@@ -5,12 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Rhyme.Scanner;
-using Rhyme.Parser;
-using Rhyme.Resolver;
+using Rhyme.Parsing;
+using Rhyme.Resolving;
 
 using LLVMSharp.Interop;
 
-namespace Rhyme.CodeGenerator
+namespace Rhyme.CodeGeneration
 {
     internal class CodeGenerator : ICompilerPass, Node.IVisitor<object>
     {
@@ -403,6 +403,17 @@ namespace Rhyme.CodeGenerator
 
         public object Visit(Node.Directive directive)
         {
+            throw new NotImplementedException();
+        }
+
+        public object Visit(Node.Import importStmt)
+        {
+            throw new NotImplementedException();
+        }
+
+        public object Visit(Node.Module moduleDecl)
+        {
+            return null;
             throw new NotImplementedException();
         }
 

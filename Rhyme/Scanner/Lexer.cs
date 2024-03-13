@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 
 namespace Rhyme.Scanner
 {
-
-    internal class Scanner : ICompilerPass
+    internal class Lexer : ICompilerPass
     {
         string _source;
         int _line;
@@ -25,6 +24,8 @@ namespace Rhyme.Scanner
             { "while", TokenType.While },
             { "return", TokenType.Return },
             { "extern", TokenType.Extern },
+            { "module", TokenType.Module },
+            { "import", TokenType.Import },
 
             { "var", TokenType.Var },
 
@@ -37,15 +38,15 @@ namespace Rhyme.Scanner
             {"true", TokenType.True}, {"false", TokenType.False}, {"null", TokenType.Null}
         };
 
-        public Scanner(string source)
+        public Lexer(string source)
         {
             _source = source;
             Errors = _errors;
         }
 
-        public static Scanner FromFile(string filePath)
+        public static Lexer FromFile(string filePath)
         {
-            return new Scanner(File.ReadAllText(filePath));
+            return new Lexer(File.ReadAllText(filePath));
         }
 
         public IEnumerable<Token> Scan()
