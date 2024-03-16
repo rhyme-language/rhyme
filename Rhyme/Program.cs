@@ -24,7 +24,7 @@ compiler.Parameters = new CompilerParameters
     ExecutableName = console_options.OutputFile.FullName,
 };
 
-compiler.CompileFromFile(console_options.SourceFiles.Select(f => f.FullName).ToArray());
+compiler.CompileFromFiles(console_options.SourceFiles.Select(f => f.FullName).ToArray());
 
 /*
 string[] lines = source.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);

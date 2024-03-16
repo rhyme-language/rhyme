@@ -1,5 +1,5 @@
 ﻿module woof;
 
-extern void() func = {
+void() func = {
     dprint("from external");
 };

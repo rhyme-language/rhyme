@@ -12,6 +12,7 @@ using Rhyme.TypeSystem;
 using Rhyme.CodeGeneration;
 using System.Threading;
 using System.Diagnostics;
+using LLVMSharp.Interop;
 
 namespace Rhyme
 {
@@ -31,7 +32,7 @@ namespace Rhyme
         public CompilerParameters Parameters { get; set; } = new CompilerParameters();
 
         
-        public CompilerResults CompileFromFile(params string[] files)
+        public CompilerResults CompileFromFiles(params string[] files)
         {
             var stopwatch = Stopwatch.StartNew();
 
@@ -69,13 +70,13 @@ namespace Rhyme
 
             foreach(var code in ll_codes)
             {
-                Debug.WriteLine(code);
-                File.WriteAllText("output.ll", code);
+                Debug.WriteLine(code.llvmCode);
+                
+                File.WriteAllText($"{code.moduleName}.ll", code.llvmCode);
             }
 
-            var clang_process = Process.Start(new ProcessStartInfo("clang", "output.ll -o program.exe"));
+            var clang_process = Process.Start(new ProcessStartInfo("clang", $"{string.Join(' ', ll_codes.Select(ll => ll.moduleName + ".ll"))} -o program.exe -g -gcodeview"));
             clang_process.WaitForExit();
-
             stopwatch.Stop();
             Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
             Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
