@@ -444,7 +444,17 @@ namespace Rhyme.CodeGeneration
 
         public object Visit(Node.Import importStmt)
         {
-            throw new NotImplementedException();
+            foreach(var exp in _programModules.First(m => m.Name == importStmt.Name.Lexeme).Exports.Values)
+            {
+                if(exp.Type is RhymeType.Function func_type)
+                {
+                    DeclareFunction(func_type, exp.Identifier);
+                    return null;
+                }
+                // TODO: import variables
+            }
+
+            return null;
         }
 
         public object Visit(Node.Module moduleDecl)

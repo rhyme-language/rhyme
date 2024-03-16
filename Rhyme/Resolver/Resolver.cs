@@ -301,7 +301,13 @@ namespace Rhyme.Resolving
             var module_name = importStmt.Name.Lexeme;
             if (!_moduleExports.ContainsKey(module_name))
             {
-                Error(importStmt.Position, $"Module {importStmt} doesn't exist");
+                Error(importStmt.Position, $"Module {importStmt.Name.Lexeme} doesn't exist");
+                return null;
+            }
+
+            foreach(var exp in _moduleExports[module_name].Values)
+            {
+                _symbolTable.Define(exp);
             }
 
             return null;
