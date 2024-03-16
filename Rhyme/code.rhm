@@ -1,5 +1,7 @@
 ﻿module woof;
 
+import meow;
+
 void() main = {
     func();
 };

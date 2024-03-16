@@ -319,7 +319,7 @@ namespace Rhyme.TypeSystem
 
         public RhymeType Visit(Node.Import importStmt)
         {
-            throw new NotImplementedException();
+            return RhymeType.NoneType;
         }
 
         public RhymeType Visit(Node.Module moduleDecl)
