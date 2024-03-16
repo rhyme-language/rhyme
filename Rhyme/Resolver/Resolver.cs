@@ -214,7 +214,7 @@ namespace Rhyme.Resolver
                         return null;
                     }
 
-                    Import(file_name);
+                    //Import(file_name);
 
                 }
                 else

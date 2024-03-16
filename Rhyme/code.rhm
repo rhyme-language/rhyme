@@ -1,5 +1,3 @@
-﻿nsp external = %import("external.rhm");
-
-void() main = {
-   external.sum(1, 2);
+﻿void() main = {
+   dprint("amoooor");
 };
