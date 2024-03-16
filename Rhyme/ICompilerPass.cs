@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Rhyme
 {
-    internal record PassError(int Line, int Start, int Length, string Message);
+    internal record PassError(Position position, string Message);
 
     internal interface ICompilerPass
     {

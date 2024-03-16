@@ -1,5 +1,5 @@
 ﻿module woof;
 
-void() main = {
-    dprint("from external.rhm");
+extern void() func = {
+    dprint("from external");
 };

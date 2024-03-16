@@ -9,12 +9,20 @@ using Rhyme.Parsing;
 using System.Xml.Linq;
 using LLVMSharp;
 using System.Xml.Serialization;
+using System.Threading.Tasks.Dataflow;
+using System.Collections;
+using System.Diagnostics;
+using System.Reflection;
 
 namespace Rhyme.Resolving
 {
     internal record Function(string Name, RhymeType.Function Type, Declaration[] Locals);
 
-    internal record ModuleInfo(string Name, IReadOnlySymbolTable SymbolTable);
+    internal record Module(
+        string Name,
+        (Node.CompilationUnit SyntaxTree, IReadOnlySymbolTable SymbolTable)[] ResolvedSyntaxTree,
+        IReadOnlyDictionary<string, Declaration> Exports
+    );
 
     internal class Resolver : Node.IVisitor<object>, ICompilerPass
     {
@@ -25,21 +33,21 @@ namespace Rhyme.Resolving
 
         void Error(Position position, string message)
         {
-            Error(position.Line, position.Start, position.Length, message);
-        }
-        void Error(int line, int start, int length, string message)
-        {
             HadError = true;
-            _errors.Add(new PassError(line, start, length, message));
+            Console.WriteLine($"[X] Resolver @ {position.Line}: {message}");
+            _errors.Add(new PassError(position, message));
         }
 
         SymbolTable _symbolTable = new SymbolTable();
-        string _moduleName = "UNNAMED_MODULE";
-
-        public Resolver()
+        Node.CompilationUnit[] trees;
+        public Resolver(params Node.CompilationUnit[] programs)
         {
+            trees = programs;
             Errors = _errors;
+        }
 
+        void DefineDebugBuiltIns()
+        {
             // For now we will have a mini environment for holding some globals that we will need
             // through the code until we make our own standard library.
             // dprint (debug print) a temporal function for printing to console stream.
@@ -58,11 +66,58 @@ namespace Rhyme.Resolving
                 "dprint_flt"
             ));
         }
-        public ModuleInfo Resolve(Node.CompilationUnit program)
-        {
-            ResolveNode(program);
 
-            return new ModuleInfo(_moduleName, _symbolTable);
+        Dictionary<string, Dictionary<string, Declaration>> _moduleExports = new Dictionary<string, Dictionary<string, Declaration>>();
+        string _currentModuleName = "UNNAMED_MODULE";
+
+        public Module[] Resolve()
+        {
+            var module_infos = new List<Module>();
+            
+            // Extract modules
+            foreach(var tree in trees)
+            {
+                // We are sure syntactically that the first node is the module node
+                var module_name = ((Node.Module)tree.Units.First()).Name.Lexeme;
+
+                if (!_moduleExports.ContainsKey(module_name))
+                    _moduleExports[module_name] = new Dictionary<string, Declaration>();
+
+                foreach(var unit in tree.Units)
+                {
+                    if(unit is Node.BindingDeclaration binding)
+                    {
+                        if(binding.Export)
+                            _moduleExports[module_name].Add(binding.Declaration.Identifier, binding.Declaration);
+                    }
+                }
+            }
+
+            var moduleTrees = new List<Node.CompilationUnit>();
+
+            // Now resolve each module
+            foreach(var tree in trees)
+            {
+                _symbolTable = new SymbolTable();
+                DefineDebugBuiltIns();
+                _currentModuleName = ((Node.Module)tree.Units.First()).Name.Lexeme;
+                ResolveNode(tree);
+            }
+
+            // Group abstract syntax trees by module name
+            foreach(var group in trees.GroupBy(ast => ((Node.Module)ast.Units.First()).Name.Lexeme))
+            {
+                var ast_symboltable_tuple = new List<(Node.CompilationUnit SyntaxTree, IReadOnlySymbolTable SymbolTable)>();
+
+                foreach (var ast in group)
+                {
+                    ast_symboltable_tuple.Add((ast, _symbolTable));
+                }
+
+                module_infos.Add(new Module(group.Key, ast_symboltable_tuple.ToArray(), _moduleExports[group.Key]));
+            }
+
+            return module_infos.ToArray();
         }
 
         void ResolveNode(Node node)
@@ -108,10 +163,21 @@ namespace Rhyme.Resolving
             var result = _symbolTable.Define(bindingDecl.Declaration);
 
             if (result == ResolutionResult.AlreadyExists)
-                Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' is already defined in this scope");
+            {
+                if (_moduleExports[_currentModuleName].ContainsValue(bindingDecl.Declaration))
+                    Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' is already defined in '{_currentModuleName}' module");
+                else
+                    Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' is already defined in this scope");
+                return null;
+            }
 
             if (result == ResolutionResult.Shadowed)
-                Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' shadows an outer declaration");
+            {
+                if (_moduleExports[_currentModuleName].ContainsValue(bindingDecl.Declaration))
+                    Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' is shadows a declaration in '{_currentModuleName}' module");
+                else
+                    Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' shadows an outer declaration");
+            }
 
             if(bindingDecl.Expression is Node.Block block)
             {
@@ -160,8 +226,10 @@ namespace Rhyme.Resolving
         public object Visit(Node.Binding binding)
         {
             if (!_symbolTable.Contains(binding.Identifier.Lexeme))
-                Error(binding.Position, $"'{binding.Identifier.Lexeme}' is not defined in this scope");
-
+            {
+                if (!_moduleExports[_currentModuleName].ContainsKey(binding.Identifier.Lexeme))
+                    Error(binding.Position, $"'{binding.Identifier.Lexeme}' is not defined in this scope");
+            }
             return null;
         }
 
@@ -230,12 +298,20 @@ namespace Rhyme.Resolving
 
         public object Visit(Node.Import importStmt)
         {
-            throw new NotImplementedException();
+            var module_name = importStmt.Name.Lexeme;
+            if (!_moduleExports.ContainsKey(module_name))
+            {
+                Error(importStmt.Position, $"Module {importStmt} doesn't exist");
+            }
+
+            return null;
         }
 
         public object Visit(Node.Module moduleDecl)
         {
-            _moduleName = moduleDecl.Identifier.Lexeme;
+            //foreach(var decl in _moduleExports[moduleDecl.Name.Lexeme])
+                //_symbolTable.Define(decl);
+
             return null;
         }
     }

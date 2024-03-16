@@ -33,50 +33,59 @@ namespace Rhyme
         
         public CompilerResults CompileFromFile(params string[] files)
         {
-            foreach(var file_path in files)
-            {   
-                var stopwatch = Stopwatch.StartNew();
+            var stopwatch = Stopwatch.StartNew();
+
+            var syntax_trees = new List<Node.CompilationUnit>();
+
+            foreach (var file_path in files)
+            {
 
                 var lexer = new Lexer(File.ReadAllText(file_path));
                 var tokens = lexer.Scan();
                 if (lexer.HadError)
                     return new CompilerResults(true, lexer.Errors, null);
 
-                var parser = new Parser(tokens);
-                var ast = parser.Parse();
+                var parser = new Parser(tokens, file_path);
+                syntax_trees.Add(parser.Parse());
                 if (parser.HadError)
                     return new CompilerResults(true, parser.Errors, null);
-
-                var resolver = new Resolver();
-                var module_info = resolver.Resolve(ast);
-                if (resolver.HadError)
-                    return new CompilerResults(true, resolver.Errors, null);
-
-                var typechecker = new TypeChecker(module_info.SymbolTable);
-                typechecker.Check(ast);
-                if (resolver.HadError)
-                    return new CompilerResults(true, typechecker.Errors, null);
-
-                var generator = new CodeGenerator(ast, module_info.SymbolTable);
-                var ll_code = generator.Generate();
-                if (generator.HadError)
-                    return new CompilerResults(true, generator.Errors, null);
-
-                Debug.WriteLine(ll_code);
-                File.WriteAllText("output.ll", ll_code);
-                var clang_process = Process.Start(new ProcessStartInfo("clang", "output.ll -o program.exe"));
-                clang_process.WaitForExit();
-
-                stopwatch.Stop();
-                Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
-                Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
-                Console.WriteLine("Running...\n");
-                Thread.Sleep(500);
-                Console.Clear();
-                Process.Start("program.exe");
-
             }
+
+            var resolver = new Resolver(syntax_trees.ToArray());
+            var modules = resolver.Resolve();
+            if (resolver.HadError)
+                return new CompilerResults(true, resolver.Errors, null);
+
+            var typechecker = new TypeChecker(modules);
+            typechecker.Check();
+
+            if (typechecker.HadError)
+                return new CompilerResults(true, typechecker.Errors, null);
+
+            var generator = new CodeGenerator(modules);
+            var ll_codes = generator.Generate();
+            if (generator.HadError)
+                return new CompilerResults(true, generator.Errors, null);
+
+            foreach(var code in ll_codes)
+            {
+                Debug.WriteLine(code);
+                File.WriteAllText("output.ll", code);
+            }
+
+            var clang_process = Process.Start(new ProcessStartInfo("clang", "output.ll -o program.exe"));
+            clang_process.WaitForExit();
+
+            stopwatch.Stop();
+            Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
+            Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
+            Console.WriteLine("Running...\n");
+            Thread.Sleep(500);
+            Console.Clear();
+            Process.Start("program.exe");
+
             return new CompilerResults(false, null, Parameters.ExecutableName);
+
         }
     }
 }

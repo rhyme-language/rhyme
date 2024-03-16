@@ -42,7 +42,11 @@ namespace Rhyme
                 output_executable = results.GetValueForOption(outputExecutableOption);
             });
 
-            rootCommand.Invoke(args);
+            if (rootCommand.Invoke(args) != 0)
+                Environment.Exit(-1);
+
+            if (source_files == null)
+                Environment.Exit(-1);
 
             return new CommandLineValues(source_files, output_executable);
         }

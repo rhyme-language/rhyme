@@ -9,7 +9,7 @@ using Rhyme.Scanner;
 using Rhyme.Parsing;
 using Rhyme.Resolving;
 using System.Collections;
-using LLVMSharp;
+using System.Diagnostics;
 
 namespace Rhyme.TypeSystem
 {
@@ -18,7 +18,9 @@ namespace Rhyme.TypeSystem
     {
         
 
-        private readonly IReadOnlySymbolTable _symbolTable;
+        private readonly Module[] _modules;
+        private Module _currentModule;
+        private IReadOnlySymbolTable _currentSymbolTable;
 
         public bool HadError { get; private set; }
 
@@ -33,17 +35,26 @@ namespace Rhyme.TypeSystem
             Bitwise
         }
 
-        public TypeChecker(IReadOnlySymbolTable symbolTable)
+        public TypeChecker(params Module[] moduleInfos)
         {
-            _symbolTable = symbolTable;
-            _symbolTable.Reset();
+            _modules = moduleInfos;
             Errors = _errors;   
         }
 
-        public bool Check(Node.CompilationUnit program)
+        public bool Check()
         {
-            check(program);
-            return true;
+            foreach(var module in _modules)
+            {
+                _currentModule = module;
+                foreach(var ast_tuple in module.ResolvedSyntaxTree)
+                {
+                    _currentSymbolTable = ast_tuple.SymbolTable;
+                    _currentSymbolTable.Reset();
+                    check(ast_tuple.SyntaxTree);
+                }
+            }
+
+            return HadError;
         }
 
         RhymeType check(Node node)
@@ -96,12 +107,12 @@ namespace Rhyme.TypeSystem
 
         public RhymeType Visit(Node.Block blockExpr)
         {
-            _symbolTable.OpenScope();
+            _currentSymbolTable.OpenScope();
 
             foreach(var exprstmt in blockExpr.ExpressionsStatements)
                 check(exprstmt);
 
-            _symbolTable.CloseScope();
+            _currentSymbolTable.CloseScope();
 
             return new RhymeType.Function(RhymeType.Void);
         }
@@ -110,7 +121,7 @@ namespace Rhyme.TypeSystem
         public RhymeType Visit(Node.BindingDeclaration bindingDecl)
         {
             var decl = bindingDecl.Declaration;
-            var decl_type = _symbolTable[decl.Identifier];
+            var decl_type = _currentSymbolTable[decl.Identifier];
 
             if(bindingDecl.Expression is Node.Block block)
             {
@@ -141,8 +152,9 @@ namespace Rhyme.TypeSystem
 
         void Error(Position at, string message)
         {
+            Debug.WriteLine($"[X] TypeChcker @ {at.Line}: {message}");
             HadError = true;
-            _errors.Add(new PassError(at.Line, at.Start, at.Length, message));
+            _errors.Add(new PassError(at, message));
         }
         public RhymeType Visit(Node.If ifStmt)
         {
@@ -161,7 +173,7 @@ namespace Rhyme.TypeSystem
             if (assignment.Assignee is not Node.Binding)
                 throw new Exception("Unassignable target.");
 
-            var lhs = _symbolTable[((Node.Binding)assignment.Assignee).Identifier.Lexeme];
+            var lhs = _currentSymbolTable[((Node.Binding)assignment.Assignee).Identifier.Lexeme];
             var eval_result = TypeEvaluate(rhs, TokenType.Equal, lhs);
 
             if (eval_result.valid)
@@ -235,7 +247,10 @@ namespace Rhyme.TypeSystem
 
         public RhymeType Visit(Node.Binding binding)
         {
-            return _symbolTable[binding.Identifier.Lexeme];
+            if (_currentModule.Exports.ContainsKey(binding.Identifier.Lexeme))
+                return _currentModule.Exports[binding.Identifier.Lexeme].Type;
+
+            return _currentSymbolTable[binding.Identifier.Lexeme];
         }
 
         public RhymeType Visit(Node.Grouping grouping)
