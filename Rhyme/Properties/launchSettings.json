@@ -2,7 +2,7 @@
   "profiles": {
     "Rhyme": {
       "commandName": "Project",
-      "commandLineArgs": "code.rhm -o program.exe"
+      "commandLineArgs": "code.rhm external.rhm -o program.exe"
     }
   }
 }

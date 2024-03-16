@@ -1,6 +1,6 @@
 ﻿module woof;
 
-extern void() main = {
-    dprint("hello amr");
+void() main = {
+    func();
 };
  
