@@ -25,11 +25,13 @@ namespace Rhyme.Parsing
         public bool HadError { get; private set; }
         public IReadOnlyCollection<PassError> Errors { get; }
 
-        public Parser(IEnumerable<Token> Tokens)
+        string _file;
+        public Parser(IEnumerable<Token> Tokens, string filePath)
         {
             _tokens = new LinkedList<Token>(Tokens);
             _current = _tokens.First;
             Errors = _errors;
+            _file = filePath;
         }
 
         public Node.CompilationUnit Parse()
@@ -100,7 +102,7 @@ namespace Rhyme.Parsing
                     units.Add(Binding(Match(TokenType.Extern)));
             } while (!AtEnd());
 
-            return new Node.CompilationUnit(units);
+            return new Node.CompilationUnit(new FileInfo(_file), units);
         }
         private RhymeType Type()
         {
@@ -472,7 +474,7 @@ namespace Rhyme.Parsing
         {
             Console.WriteLine(message);
             HadError = true;
-            _errors.Add(new PassError(at.Line, at.Start, at.Length, message));
+            _errors.Add(new PassError(at, message));
 
             // Error recovery!
             while (_current.Next != null && _current.Value.Type != TokenType.Semicolon)

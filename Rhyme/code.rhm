@@ -1,5 +1,6 @@
 ﻿module woof;
 
-void() main = {
-    dprint("from code.rhm");
+extern void() main = {
+    dprint("hello amr");
 };
+ 

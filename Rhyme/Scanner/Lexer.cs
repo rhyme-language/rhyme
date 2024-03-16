@@ -43,12 +43,6 @@ namespace Rhyme.Scanner
             _source = source;
             Errors = _errors;
         }
-
-        public static Lexer FromFile(string filePath)
-        {
-            return new Lexer(File.ReadAllText(filePath));
-        }
-
         public IEnumerable<Token> Scan()
         {
             _line = 1;
@@ -218,7 +212,7 @@ namespace Rhyme.Scanner
         void Error(int line, int start, int length, string message)
         {
             HadError = true;
-            _errors.Add(new PassError(line, start, length, message));
+            _errors.Add(new PassError(new Position(line, start, start + length), message));
         }
         #endregion
 

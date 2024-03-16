@@ -45,7 +45,7 @@ namespace Rhyme.Parsing
         public Position Position { get; }
         
 
-        public record CompilationUnit(IReadOnlyCollection<Node> Units) : Node
+        public record CompilationUnit(FileInfo SourceFile, IReadOnlyCollection<Node> Units) : Node
         {
             public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
@@ -128,14 +128,14 @@ namespace Rhyme.Parsing
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record Import(Token Identifier) : Node
+        public record Import(Token Name) : Node
         {
-            public Position Position => Identifier.Position;
+            public Position Position => Name.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
-        public record Module(Token Identifier) : Node
+        public record Module(Token Name) : Node
         {
-            public Position Position => Identifier.Position;
+            public Position Position => Name.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
         public record Directive(Token Identifier, params Node[] Arguments) : Node

@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 
 using Rhyme.Scanner;
 using Rhyme.Parsing;
+using System.CommandLine;
+using System.Runtime.InteropServices;
 
 namespace Rhyme.Resolving
 {
