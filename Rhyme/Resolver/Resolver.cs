@@ -4,15 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Rhyme.Scanner;
 using Rhyme.Parsing;
-using System.Xml.Linq;
-using LLVMSharp;
-using System.Xml.Serialization;
-using System.Threading.Tasks.Dataflow;
-using System.Collections;
-using System.Diagnostics;
-using System.Reflection;
+using Rhyme.TypeSystem;
+
 
 namespace Rhyme.Resolving
 {
@@ -24,12 +18,31 @@ namespace Rhyme.Resolving
         IReadOnlyDictionary<string, Declaration> Exports
     );
 
+    /// <summary>
+    /// Resolver compiler pass: <br />
+    /// - Walks on a tree of <see cref="Node.CompilationUnit"></see> <br />
+    /// - Checks identifiers and declarations scopes. <br />
+    /// - Governs the static (lexical) life-time of declarations and their usage. <br />
+    /// - Generates the <see cref="IReadOnlySymbolTable"/> of declarations. <br />
+    /// </summary>
     internal class Resolver : Node.IVisitor<object>, ICompilerPass
     {
-        public bool HadError { get; private set; }
-
-        public IReadOnlyCollection<PassError> Errors { get; private set; }
         List<PassError> _errors = new List<PassError>();
+
+        SymbolTable _symbolTable = new SymbolTable();
+        Node.CompilationUnit[] trees;
+
+        Dictionary<string, Dictionary<string, Declaration>> _moduleExports = new Dictionary<string, Dictionary<string, Declaration>>();
+        string _currentModuleName = "UNNAMED_MODULE";
+
+        public Resolver(params Node.CompilationUnit[] programs)
+        {
+            trees = programs;
+            Errors = _errors;
+        }
+        
+        public bool HadError { get; private set; }
+        public IReadOnlyCollection<PassError> Errors { get; private set; }
 
         void Error(Position position, string message)
         {
@@ -38,13 +51,6 @@ namespace Rhyme.Resolving
             _errors.Add(new PassError(position, message));
         }
 
-        SymbolTable _symbolTable = new SymbolTable();
-        Node.CompilationUnit[] trees;
-        public Resolver(params Node.CompilationUnit[] programs)
-        {
-            trees = programs;
-            Errors = _errors;
-        }
 
         void DefineDebugBuiltIns()
         {
@@ -66,9 +72,6 @@ namespace Rhyme.Resolving
                 "dprint_flt"
             ));
         }
-
-        Dictionary<string, Dictionary<string, Declaration>> _moduleExports = new Dictionary<string, Dictionary<string, Declaration>>();
-        string _currentModuleName = "UNNAMED_MODULE";
 
         public Module[] Resolve()
         {
@@ -125,6 +128,8 @@ namespace Rhyme.Resolving
             node.Accept(this);
         }
 
+        #region Pass Visitors
+
         public object Visit(Node.Literal literalExpr)
         {
             return null;
@@ -141,8 +146,6 @@ namespace Rhyme.Resolving
         {
             throw new NotImplementedException();
         }
-
-        List<Declaration> _functionLocals = new List<Declaration>();
 
         public object Visit(Node.Block blockExpr)
         {
@@ -179,14 +182,14 @@ namespace Rhyme.Resolving
                     Error(bindingDecl.Position, $"'{bindingDecl.Declaration.Identifier}' shadows an outer declaration");
             }
 
-            if(bindingDecl.Expression is Node.Block block)
+            if (bindingDecl.Expression is Node.Block block)
             {
                 _symbolTable.StartScope();
 
                 // Resolve Parameters
-                if(bindingDecl.Declaration.Type is RhymeType.Function func_type)
+                if (bindingDecl.Declaration.Type is RhymeType.Function func_type)
                 {
-                    foreach(var param in func_type.Parameters)
+                    foreach (var param in func_type.Parameters)
                         _symbolTable.Define(param);
 
                     foreach (var stmt in block.ExpressionsStatements)
@@ -194,7 +197,7 @@ namespace Rhyme.Resolving
 
                     _symbolTable.EndScope();
                     return null;
-                } 
+                }
             }
 
             ResolveNode(bindingDecl.Expression);
@@ -240,7 +243,7 @@ namespace Rhyme.Resolving
 
         public object Visit(Node.CompilationUnit compilationUnit)
         {
-            foreach(var unit in compilationUnit.Units)
+            foreach (var unit in compilationUnit.Units)
             {
                 ResolveNode(unit);
             }
@@ -250,7 +253,7 @@ namespace Rhyme.Resolving
         public object Visit(Node.FunctionCall callExpr)
         {
             ResolveNode(callExpr.Callee);
-            foreach(var arg in callExpr.Args)
+            foreach (var arg in callExpr.Args)
                 ResolveNode(arg);
 
             return null;
@@ -269,7 +272,7 @@ namespace Rhyme.Resolving
 
         public object Visit(Node.Directive directive)
         {
-            if(directive.Identifier.Lexeme == "import")
+            if (directive.Identifier.Lexeme == "import")
             {
                 if (directive.Arguments.Length != 1)
                 {
@@ -284,8 +287,6 @@ namespace Rhyme.Resolving
                         Error(directive.Position, $"File '{file_name}' doesn't exist");
                         return null;
                     }
-
-                    //Import(file_name);
 
                 }
                 else
@@ -305,7 +306,7 @@ namespace Rhyme.Resolving
                 return null;
             }
 
-            foreach(var exp in _moduleExports[module_name].Values)
+            foreach (var exp in _moduleExports[module_name].Values)
             {
                 _symbolTable.Define(exp);
             }
@@ -315,10 +316,9 @@ namespace Rhyme.Resolving
 
         public object Visit(Node.Module moduleDecl)
         {
-            //foreach(var decl in _moduleExports[moduleDecl.Name.Lexeme])
-                //_symbolTable.Define(decl);
-
             return null;
         }
+
+        #endregion
     }
 }

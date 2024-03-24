@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Rhyme.Scanner;
+using Rhyme.TypeSystem;
 
 namespace Rhyme.Parsing
 {
@@ -26,31 +27,26 @@ namespace Rhyme.Parsing
             T Visit(Binary binaryExpr);
             T Visit(Unary unaryExpr);
             T Visit(Block blockExpr);
-            T Visit(BindingDeclaration bindingDecl);
+            T Visit(FunctionCall callExpr);
             T Visit(If ifStmt);
             T Visit(While whileStmt);
-            T Visit(Get member);
-            T Visit(Return returnStmt);
-            T Visit(Assignment assignment);
-            T Visit(FunctionCall callExpr);
-            T Visit(Binding binding);
             T Visit(Grouping grouping);
+            T Visit(Binding binding);
+            T Visit(Assignment assignment);
+            T Visit(Return returnStmt);
+            T Visit(Get member);
+            T Visit(Directive directive);
+
+            T Visit(BindingDeclaration bindingDecl);
             T Visit(Import importStmt);
             T Visit(Module moduleDecl);
-            T Visit(Directive directive);
-            T Visit(CompilationUnit compilationUnit);
-           
+
+            T Visit(CompilationUnit compilationUnit);           
         }
         public T Accept<T>(IVisitor<T> visitor);
         public Position Position { get; }
-        
 
-        public record CompilationUnit(FileInfo SourceFile, IReadOnlyCollection<Node> Units) : Node
-        {
-            public Position Position => Position.NonePosition;
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-        }
-
+        #region Expressions
         public record Literal(Token ValueToken) : Node
         {
             public Position Position => ValueToken.Position;
@@ -77,37 +73,21 @@ namespace Rhyme.Parsing
             public Position Position => new Position(Callee.Position.Line, Callee.Position.Start, Args.Length > 0 ? Args[^1].Position.End : Callee.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
-
-        public record Block(IReadOnlyCollection<Node> ExpressionsStatements) : Node
-        {
-            public Position Position => Position.NonePosition;
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-        }
-
-        public record BindingDeclaration(Declaration Declaration, Node Expression, bool Export) : Node
-        {
-            public Position Position => Expression.Position;
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-
-        }
-
-        public record Assignment(Node Assignee, Node Expression) : Node
-        {
-            public Position Position => new Position(Assignee.Position.Line, Assignee.Position.Start, Expression.Position.End);
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-
-        }
-
         public record Binding(Token Identifier) : Node
         {
             public Position Position => Identifier.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
-
-        public record Grouping(Node Expression) : Node
+        public record Block(IReadOnlyCollection<Node> ExpressionsStatements) : Node
         {
-            public Position Position => Expression.Position;
+            public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+        public record Assignment(Node Assignee, Node Expression) : Node
+        {
+            public Position Position => new Position(Assignee.Position.Line, Assignee.Position.Start, Expression.Position.End);
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+
         }
 
         public record If(Node condition, Node thenBody, Node elseBody) : Node
@@ -116,7 +96,7 @@ namespace Rhyme.Parsing
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record While(Node Condition, Node LoopBody) :  Node
+        public record While(Node Condition, Node LoopBody) : Node
         {
             public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
@@ -128,16 +108,12 @@ namespace Rhyme.Parsing
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record Import(Token Name) : Node
+        public record Grouping(Node Expression) : Node
         {
-            public Position Position => Name.Position;
+            public Position Position => Expression.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
-        public record Module(Token Name) : Node
-        {
-            public Position Position => Name.Position;
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-        }
+
         public record Directive(Token Identifier, params Node[] Arguments) : Node
         {
             public Position Position => Identifier.Position;
@@ -148,6 +124,34 @@ namespace Rhyme.Parsing
             public Position Position => RetrunExpression.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
+        }
+
+        #endregion
+
+        #region Declarations
+        public record BindingDeclaration(Declaration Declaration, Node Expression, bool Export) : Node
+        {
+            public Position Position => Expression.Position;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+
+        }
+        public record Import(Token Name) : Node
+        {
+            public Position Position => Name.Position;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+        public record Module(Token Name) : Node
+        {
+            public Position Position => Name.Position;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+
+        #endregion 
+
+        public record CompilationUnit(FileInfo SourceFile, IReadOnlyCollection<Node> Units) : Node
+        {
+            public Position Position => Position.NonePosition;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
     }
 }

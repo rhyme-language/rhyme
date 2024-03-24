@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Rhyme.Scanner;
 using Rhyme.Parsing;
 using Rhyme.Resolving;
+using Rhyme.TypeSystem;
 
 using LLVMSharp.Interop;
 using System.Net.Http.Headers;
@@ -16,22 +17,17 @@ namespace Rhyme.CodeGeneration
 {
     internal class CodeGenerator : ICompilerPass, Node.IVisitor<object>
     {
-        List<PassError> _errors = new List<PassError>();
+        private List<PassError> _errors = new List<PassError>();
 
+        private Dictionary<string, LLVMValueRef> _locals = new Dictionary<string, LLVMValueRef>();
 
-        public bool HadError { get; private set; }
-        public IReadOnlyCollection<PassError> Errors { get; }
-
-        Dictionary<string, LLVMValueRef> _locals = new Dictionary<string, LLVMValueRef>();
-        Dictionary<string, LLVMTypeRef> _globals = new Dictionary<string, LLVMTypeRef>();
-
-        LLVMModuleRef _LLVMmodule;
-        LLVMBuilderRef _builder;
-
+        private Dictionary<string, LLVMTypeRef> _globals = new Dictionary<string, LLVMTypeRef>();
+        private LLVMModuleRef _LLVMmodule;
+        private LLVMBuilderRef _builder;
         private IReadOnlySymbolTable _currentSymbolTable;
-        string _moduleName;
+        private string _moduleName;
 
-        Dictionary<RhymeType, LLVMTypeRef> _rhymeTypeLLVMType = new Dictionary<RhymeType, LLVMTypeRef>()
+        private Dictionary<RhymeType, LLVMTypeRef> _rhymeTypeLLVMType = new Dictionary<RhymeType, LLVMTypeRef>()
         {
             { RhymeType.Void, LLVMTypeRef.Void },
             { RhymeType.U8, LLVMTypeRef.Int8 },
@@ -45,17 +41,23 @@ namespace Rhyme.CodeGeneration
         };
 
 
-        bool _global = true;
+        private bool _global = true;
 
         Dictionary<string, Action<Node.FunctionCall>> _debugBuiltIns = new Dictionary<string, Action<Node.FunctionCall>>();
 
         readonly Resolving.Module[]  _programModules;
         Resolving.Module _currentRhymeModule = null;
+
+
         public CodeGenerator(Resolving.Module[] modules)
         {
             _programModules = modules;
         }
-        
+
+        public bool HadError { get; private set; }
+        public IReadOnlyCollection<PassError> Errors { get; }
+
+
         public (string moduleName, string llvmCode)[] Generate()
         {
             var llvm_outputs = new List<(string module, string llvmCode)>();
@@ -69,7 +71,7 @@ namespace Rhyme.CodeGeneration
                     _currentSymbolTable = ast_tuple.SymbolTable;
                     _currentSymbolTable.Reset();
 
-                    GenerateNode(ast_tuple.SyntaxTree);
+                    Visit((Node)ast_tuple.SyntaxTree);
                     Debug.WriteLine(_LLVMmodule.PrintToString());
                     llvm_outputs.Add((_moduleName, _LLVMmodule.PrintToString()));
                 }
@@ -78,10 +80,12 @@ namespace Rhyme.CodeGeneration
             return llvm_outputs.ToArray();
         }
         
-        object GenerateNode(Node node)
+        object Visit(Node node)
         {
             return node.Accept(this);
         }
+
+        #region Pass Visitors
         public object Visit(Node.Literal literalExpr)
         {
             var token = literalExpr.ValueToken;
@@ -106,8 +110,8 @@ namespace Rhyme.CodeGeneration
 
         public object Visit(Node.Binary binaryExpr)
         {
-            var lhs = (LLVMValueRef)GenerateNode(binaryExpr.Left);
-            var rhs = (LLVMValueRef)GenerateNode(binaryExpr.Right);
+            var lhs = (LLVMValueRef)Visit(binaryExpr.Left);
+            var rhs = (LLVMValueRef)Visit(binaryExpr.Right);
 
             switch (binaryExpr.Op.Type)
             {
@@ -137,7 +141,7 @@ namespace Rhyme.CodeGeneration
         {
             foreach(var stmt in blockExpr.ExpressionsStatements)
             {
-                GenerateNode(stmt);
+                Visit(stmt);
             }
 
             return null;
@@ -187,7 +191,7 @@ namespace Rhyme.CodeGeneration
                 foreach (var stmt in ((Node.Block)bindingDecl.Expression).ExpressionsStatements)
                 {
                     _global = false;
-                    GenerateNode(stmt);
+                    Visit(stmt);
                 }
                
                 if(return_type == LLVMTypeRef.Void)
@@ -204,20 +208,20 @@ namespace Rhyme.CodeGeneration
                 var global_var = _LLVMmodule.AddGlobal(llvm_type, identifier);
 
                 if (bindingDecl.Expression != null)
-                    global_var.Initializer = (LLVMValueRef)GenerateNode(bindingDecl.Expression);
+                    global_var.Initializer = (LLVMValueRef)Visit(bindingDecl.Expression);
 
                 return null;
             }
 
             _locals.Add(identifier, _builder.BuildAlloca(llvm_type, identifier));
             
-            _builder.BuildStore((LLVMValueRef)GenerateNode(bindingDecl.Expression), _locals[identifier]);
+            _builder.BuildStore((LLVMValueRef)Visit(bindingDecl.Expression), _locals[identifier]);
             return null;
         }
 
         public object Visit(Node.If ifStmt)
         {
-            var condition = (LLVMValueRef)GenerateNode(ifStmt.condition);
+            var condition = (LLVMValueRef)Visit(ifStmt.condition);
 
             var then_block = _LLVMmodule.LastFunction.AppendBasicBlock("if");
             var else_block = _LLVMmodule.LastFunction.AppendBasicBlock("else");
@@ -226,14 +230,14 @@ namespace Rhyme.CodeGeneration
             _builder.BuildCondBr(condition, then_block, else_block);
 
             _builder.PositionAtEnd(then_block);
-            GenerateNode(ifStmt.thenBody);
+            Visit(ifStmt.thenBody);
             _builder.BuildBr(end);
 
             _builder.PositionAtEnd(else_block);
 
             if (ifStmt.elseBody != null)
             {                
-                GenerateNode(ifStmt.elseBody);
+                Visit(ifStmt.elseBody);
             }
 
             _builder.BuildBr(end);
@@ -253,12 +257,12 @@ namespace Rhyme.CodeGeneration
 
             // Condition Block
             _builder.PositionAtEnd(cond_block);
-            var condition = (LLVMValueRef)GenerateNode(whileStmt.Condition);
+            var condition = (LLVMValueRef)Visit(whileStmt.Condition);
             _builder.BuildCondBr(condition, loop_block, end);
 
             // Loop Block
             _builder.PositionAtEnd(loop_block);
-            GenerateNode(whileStmt.LoopBody);
+            Visit(whileStmt.LoopBody);
             _builder.BuildBr(cond_block);
 
             // Exit
@@ -268,7 +272,7 @@ namespace Rhyme.CodeGeneration
         public object Visit(Node.Assignment assignment)
         {
             return _builder.BuildStore(
-                (LLVMValueRef)GenerateNode(assignment.Expression),
+                (LLVMValueRef)Visit(assignment.Expression),
                 GetValue(((Node.Binding)assignment.Assignee).Identifier.Lexeme) 
             );
         }
@@ -278,7 +282,7 @@ namespace Rhyme.CodeGeneration
         {
             if(callExpr.Callee is Node.Binding binding)
             {
-                LLVMValueRef func_value_ref = (LLVMValueRef)GenerateNode(binding);
+                LLVMValueRef func_value_ref = (LLVMValueRef)Visit((Node)binding);
                 var func_name = binding.Identifier.Lexeme;
 
                 if (_debugBuiltIns.ContainsKey(func_name)){
@@ -286,7 +290,7 @@ namespace Rhyme.CodeGeneration
 
                     return null;
                 }
-                return _builder.BuildCall2(_funcs[func_name].typeref, _funcs[func_name].valueref, callExpr.Args.Select(arg => (LLVMValueRef)GenerateNode(arg)).ToArray());
+                return _builder.BuildCall2(_funcs[func_name].typeref, _funcs[func_name].valueref, callExpr.Args.Select(arg => (LLVMValueRef)Visit(arg)).ToArray());
             }
             return null;
         }
@@ -342,7 +346,7 @@ namespace Rhyme.CodeGeneration
             {
                 // Note: They are globals!
                 _global = true;
-                GenerateNode(unit);
+                Visit(unit);
             }
 
             _LLVMmodule.Verify(LLVMVerifierFailureAction.LLVMPrintMessageAction);
@@ -351,8 +355,8 @@ namespace Rhyme.CodeGeneration
             //Console.WriteLine(ll_code);
             return ll_code;
         }
+        #endregion
 
-       
 
 
         #region Helpers
@@ -391,13 +395,13 @@ namespace Rhyme.CodeGeneration
             _debugBuiltIns.Add("dprint", fc =>
             {
                 var m = _LLVMmodule.GetNamedFunction("puts");
-                _builder.BuildCall2(_funcs["puts"].typeref, _funcs["puts"].valueref, new[] { (LLVMValueRef)GenerateNode(fc.Args[0]) }, "puts");
+                _builder.BuildCall2(_funcs["puts"].typeref, _funcs["puts"].valueref, new[] { (LLVMValueRef)Visit(fc.Args[0]) }, "puts");
 
             });
 
             _debugBuiltIns.Add("dprint_int", fc =>
             {
-                var args = fc.Args.Select(arg => (LLVMValueRef)GenerateNode(arg)).ToList();
+                var args = fc.Args.Select(arg => (LLVMValueRef)Visit(arg)).ToList();
                 args.Insert(0, _builder.BuildGlobalStringPtr("%d\n"));
 
                 _builder.BuildCall2(_funcs["printf"].typeref, _funcs["printf"].valueref, args.ToArray(), "printf");
@@ -428,7 +432,7 @@ namespace Rhyme.CodeGeneration
 
         public object Visit(Node.Return returnStmt)
         {
-            _builder.BuildRet((LLVMValueRef)GenerateNode(returnStmt.RetrunExpression));
+            _builder.BuildRet((LLVMValueRef)Visit(returnStmt.RetrunExpression));
             return null;
         }
 
