@@ -10,23 +10,22 @@ using Rhyme.Parsing;
 using Rhyme.Resolving;
 using System.Collections;
 using System.Diagnostics;
+using Rhyme.TypeSystem;
 
 namespace Rhyme.TypeSystem
 {
-    
+
     internal class TypeChecker : Node.IVisitor<RhymeType>, ICompilerPass
     {
         
+        private List<PassError> _errors = new List<PassError>();
 
         private readonly Module[] _modules;
         private Module _currentModule;
+
         private IReadOnlySymbolTable _currentSymbolTable;
 
-        public bool HadError { get; private set; }
-
-        List<PassError> _errors = new List<PassError>();
-
-        public IReadOnlyCollection<PassError> Errors { get; private set; }
+        private RhymeType.Function _currentFunction = null;
 
         internal enum Operator
         {
@@ -41,6 +40,9 @@ namespace Rhyme.TypeSystem
             Errors = _errors;   
         }
 
+        public bool HadError { get; private set; }
+        public IReadOnlyCollection<PassError> Errors { get; private set; }
+
         public bool Check()
         {
             foreach(var module in _modules)
@@ -50,17 +52,20 @@ namespace Rhyme.TypeSystem
                 {
                     _currentSymbolTable = ast_tuple.SymbolTable;
                     _currentSymbolTable.Reset();
-                    check(ast_tuple.SyntaxTree);
+                    Visit((Node)ast_tuple.SyntaxTree);
                 }
             }
 
             return HadError;
         }
 
-        RhymeType check(Node node)
+        RhymeType Visit(Node node)
         {
             return node.Accept(this);
         }
+
+        #region Pass Visitors
+
         public RhymeType Visit(Node.Literal literalExpr)
         {
             switch (literalExpr.ValueToken.Type)
@@ -86,8 +91,8 @@ namespace Rhyme.TypeSystem
         public RhymeType Visit(Node.Binary binaryExpr)
         {
 
-            var lhs = check(binaryExpr.Left);
-            var rhs = check(binaryExpr.Right);
+            var lhs = Visit(binaryExpr.Left);
+            var rhs = Visit(binaryExpr.Right);
 
             var eval_result = TypeEvaluate(lhs, binaryExpr.Op.Type, rhs);
 
@@ -110,14 +115,13 @@ namespace Rhyme.TypeSystem
             _currentSymbolTable.OpenScope();
 
             foreach(var exprstmt in blockExpr.ExpressionsStatements)
-                check(exprstmt);
+                Visit(exprstmt);
 
             _currentSymbolTable.CloseScope();
 
             return new RhymeType.Function(RhymeType.Void);
         }
 
-        RhymeType.Function _currentFunction = null;
         public RhymeType Visit(Node.BindingDeclaration bindingDecl)
         {
             var decl = bindingDecl.Declaration;
@@ -127,7 +131,7 @@ namespace Rhyme.TypeSystem
             {
                 _currentFunction = (RhymeType.Function)bindingDecl.Declaration.Type;
 
-                check(block);
+                Visit((Node)block);
 
                 if(bindingDecl.Declaration.Type is not RhymeType.Function)
                 {
@@ -138,7 +142,7 @@ namespace Rhyme.TypeSystem
                 return RhymeType.NoneType;
             }
 
-            var rhs_type = check(bindingDecl.Expression);
+            var rhs_type = Visit(bindingDecl.Expression);
 
             if (rhs_type == RhymeType.NoneType)
                 return RhymeType.NoneType;
@@ -168,7 +172,7 @@ namespace Rhyme.TypeSystem
 
         public RhymeType Visit(Node.Assignment assignment)
         {
-            var rhs = check(assignment.Expression);
+            var rhs = Visit(assignment.Expression);
 
             if (assignment.Assignee is not Node.Binding)
                 throw new Exception("Unassignable target.");
@@ -189,6 +193,94 @@ namespace Rhyme.TypeSystem
         }
 
         
+
+        public RhymeType Visit(Node.Binding binding)
+        {
+            if (_currentModule.Exports.ContainsKey(binding.Identifier.Lexeme))
+                return _currentModule.Exports[binding.Identifier.Lexeme].Type;
+
+            return _currentSymbolTable[binding.Identifier.Lexeme];
+        }
+
+        public RhymeType Visit(Node.Grouping grouping)
+        {
+            throw new NotImplementedException();
+        }
+
+        public RhymeType Visit(Node.CompilationUnit compilationUnit)
+        {
+            foreach(var unit in compilationUnit.Units)
+            {
+                Visit(unit);
+            }
+            return RhymeType.NoneType;
+        }
+
+        public RhymeType Visit(Node.FunctionCall callExpr)
+        {
+            var type = Visit(callExpr.Callee);
+
+            if(type is RhymeType.Function)
+            {
+                var func_type = (RhymeType.Function)type;
+
+                if (func_type.Parameters.Length == callExpr.Args.Length)
+                {
+                    for (int i = 0; i < func_type.Parameters.Length; i++)
+                    {
+                        var arg_type = Visit(callExpr.Args[i]);
+
+                        if (arg_type != func_type.Parameters[i].Type)
+                        {
+                            Error(callExpr.Args[i].Position, $"Wrong argument type '{arg_type}', Expects: '{func_type.Parameters[i].Type}'");
+                            return RhymeType.NoneType;
+                        }
+                    }
+                    return func_type.ReturnType;
+                }
+                Error(callExpr.Position, $"{callExpr.Args.Length} arguments passed to the function and expects {func_type.Parameters.Length}");
+                return RhymeType.NoneType;
+            }
+            Error(callExpr.Position, $"Uninvocable expression");
+            return RhymeType.NoneType;
+        }
+
+        public RhymeType Visit(Node.Return returnStmt)
+        {
+            var return_type = Visit(returnStmt.RetrunExpression);
+
+            if (return_type != _currentFunction.ReturnType)
+                Error(returnStmt.Position, $"A value of type '{return_type}' can't be returned from a function of return type '{_currentFunction.ReturnType}'");
+
+            return Visit(returnStmt.RetrunExpression);
+
+        }
+
+        public RhymeType Visit(Node.Get member)
+        {
+            throw new NotImplementedException();
+        }
+
+        public RhymeType Visit(Node.Directive directive)
+        {
+            throw new NotImplementedException();
+        }
+
+        public RhymeType Visit(Node.Import importStmt)
+        {
+            return RhymeType.NoneType;
+        }
+
+        public RhymeType Visit(Node.Module moduleDecl)
+        {
+            //throw new NotImplementedException();
+            return RhymeType.NoneType;
+        }
+
+        #endregion
+
+
+        #region Helpers
         (bool valid, RhymeType result) TypeEvaluate(RhymeType lhs, TokenType operatorToken, RhymeType rhs)
         {
             switch (operatorToken)
@@ -245,87 +337,7 @@ namespace Rhyme.TypeSystem
             return (false, RhymeType.NoneType);
         }
 
-        public RhymeType Visit(Node.Binding binding)
-        {
-            if (_currentModule.Exports.ContainsKey(binding.Identifier.Lexeme))
-                return _currentModule.Exports[binding.Identifier.Lexeme].Type;
+        #endregion
 
-            return _currentSymbolTable[binding.Identifier.Lexeme];
-        }
-
-        public RhymeType Visit(Node.Grouping grouping)
-        {
-            throw new NotImplementedException();
-        }
-
-        public RhymeType Visit(Node.CompilationUnit compilationUnit)
-        {
-            foreach(var unit in compilationUnit.Units)
-            {
-                check(unit);
-            }
-            return RhymeType.NoneType;
-        }
-
-        public RhymeType Visit(Node.FunctionCall callExpr)
-        {
-            var type = check(callExpr.Callee);
-
-            if(type is RhymeType.Function)
-            {
-                var func_type = (RhymeType.Function)type;
-
-                if (func_type.Parameters.Length == callExpr.Args.Length)
-                {
-                    for (int i = 0; i < func_type.Parameters.Length; i++)
-                    {
-                        var arg_type = check(callExpr.Args[i]);
-
-                        if (arg_type != func_type.Parameters[i].Type)
-                        {
-                            Error(callExpr.Args[i].Position, $"Wrong argument type '{arg_type}', Expects: '{func_type.Parameters[i].Type}'");
-                            return RhymeType.NoneType;
-                        }
-                    }
-                    return func_type.ReturnType;
-                }
-                Error(callExpr.Position, $"{callExpr.Args.Length} arguments passed to the function and expects {func_type.Parameters.Length}");
-                return RhymeType.NoneType;
-            }
-            Error(callExpr.Position, $"Uninvocable expression");
-            return RhymeType.NoneType;
-        }
-
-        public RhymeType Visit(Node.Return returnStmt)
-        {
-            var return_type = check(returnStmt.RetrunExpression);
-
-            if (return_type != _currentFunction.ReturnType)
-                Error(returnStmt.Position, $"A value of type '{return_type}' can't be returned from a function of return type '{_currentFunction.ReturnType}'");
-
-            return check(returnStmt.RetrunExpression);
-
-        }
-
-        public RhymeType Visit(Node.Get member)
-        {
-            throw new NotImplementedException();
-        }
-
-        public RhymeType Visit(Node.Directive directive)
-        {
-            throw new NotImplementedException();
-        }
-
-        public RhymeType Visit(Node.Import importStmt)
-        {
-            return RhymeType.NoneType;
-        }
-
-        public RhymeType Visit(Node.Module moduleDecl)
-        {
-            //throw new NotImplementedException();
-            return RhymeType.NoneType;
-        }
     }
 }

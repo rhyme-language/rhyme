@@ -5,7 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+
 using Rhyme.Scanner;
+using Rhyme.TypeSystem;
 
 namespace Rhyme.Parsing
 {
@@ -14,7 +16,7 @@ namespace Rhyme.Parsing
     /// - Parses the source code given its <see cref="Token"/>s. <br/>
     /// - Generating the abstract syntax tree (AST). <br/>
     /// - Reports syntactical errors. <br/>
-    /// - Annotates tree <see cref="Node"/>s with <see cref="Rhyme.Parsing.RhymeType"/>s. <br/>
+    /// - Annotates tree <see cref="Node"/>s with <see cref="RhymeType"/>s. <br/>
     /// </summary>
     internal class Parser : ICompilerPass
     {
@@ -22,16 +24,17 @@ namespace Rhyme.Parsing
         LinkedListNode<Token> _current;
 
         List<PassError> _errors = new List<PassError>();
+        string _filePath;
+
         public bool HadError { get; private set; }
         public IReadOnlyCollection<PassError> Errors { get; }
 
-        string _file;
         public Parser(IEnumerable<Token> Tokens, string filePath)
         {
             _tokens = new LinkedList<Token>(Tokens);
             _current = _tokens.First;
             Errors = _errors;
-            _file = filePath;
+            _filePath = filePath;
         }
 
         public Node.CompilationUnit Parse()
@@ -102,7 +105,7 @@ namespace Rhyme.Parsing
                     units.Add(Binding(Match(TokenType.Extern)));
             } while (!AtEnd());
 
-            return new Node.CompilationUnit(new FileInfo(_file), units);
+            return new Node.CompilationUnit(new FileInfo(_filePath), units);
         }
         private RhymeType Type()
         {
