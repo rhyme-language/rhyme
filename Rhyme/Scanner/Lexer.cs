@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Rhyme.Scanner
 {
-    internal class Lexer : ICompilerPass
+    public class Lexer : ICompilerPass
     {
         string _source;
         int _line;

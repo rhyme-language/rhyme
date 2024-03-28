@@ -9,17 +9,18 @@ using System.Runtime.InteropServices;
 using Rhyme.Scanner;
 using Rhyme.Parsing;
 using Rhyme.TypeSystem;
+using System.Reflection;
 
 namespace Rhyme.Resolving
 {
 
-    internal enum ResolutionResult
+    public enum ResolutionResult
     {
         Defined,
         Shadowed,
         AlreadyExists,
     }
-    internal class Scope
+    public class Scope
     {
         Dictionary<string, RhymeType> _symbols = new Dictionary<string, RhymeType>();
 
@@ -74,7 +75,7 @@ namespace Rhyme.Resolving
 
     }
 
-    internal interface IReadOnlySymbolTable
+    public interface IReadOnlySymbolTable
     {
         public void OpenScope();
         public void CloseScope();
@@ -82,13 +83,13 @@ namespace Rhyme.Resolving
         public bool Contains(string identifier);
         public RhymeType this[string identifier] { get; }
     }
-    internal class SymbolTable : IReadOnlySymbolTable
+    public class SymbolTable
     {
         Scope _current = new Scope();
 
         List<Scope> _scopes = new List<Scope>();
 
-        int _index = 0;
+
 
         public SymbolTable()
         {
@@ -107,20 +108,7 @@ namespace Rhyme.Resolving
             _current = _current.Enclosing;
         }
 
-        public void OpenScope()
-        {
-            _index++;
-        }
 
-        public void CloseScope()
-        {
-            //_index--;
-        }
-
-        public void Reset()
-        {
-            _index = 0; 
-        }
 
         public ResolutionResult Define(Declaration declaration)
         {
@@ -131,10 +119,45 @@ namespace Rhyme.Resolving
         {
             return _current.Contains(identifier);
         }
+
+        public SymbolTableNavigator GetNavigator()
+        {
+            return new SymbolTableNavigator(_scopes.ToArray());
+        }
+    }
+
+
+    public class SymbolTableNavigator
+    {
+
+        Scope[] _scopes;
+        int _index = 0;
+
+        public SymbolTableNavigator(Scope[] scopes)
+        {
+            _scopes = scopes;  
+        }
+
+        public void NextScope()
+        {
+            _index++;
+        }
+
+        public void PreviousScope()
+        {
+            _index--;
+        }
+
+        public void Reset()
+        {
+            _index = 0;
+        }
+
         public RhymeType this[string identifier]
         {
             get => _scopes[_index][identifier];
             set => _scopes[_index][identifier] = value;
         }
     }
+
 }

@@ -1,5 +1,4 @@
-﻿using Rhyme.Parsing;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,7 +14,7 @@ using Rhyme.TypeSystem;
 namespace Rhyme.TypeSystem
 {
 
-    internal class TypeChecker : Node.IVisitor<RhymeType>, ICompilerPass
+    public class TypeChecker : Node.IVisitor<RhymeType>, ICompilerPass
     {
         
         private List<PassError> _errors = new List<PassError>();
@@ -23,11 +22,11 @@ namespace Rhyme.TypeSystem
         private readonly Module[] _modules;
         private Module _currentModule;
 
-        private IReadOnlySymbolTable _currentSymbolTable;
+        private SymbolTableNavigator _currentSymbolTable;
 
         private RhymeType.Function _currentFunction = null;
 
-        internal enum Operator
+        public enum Operator
         {
             Assignment,
             Arithmetic,
@@ -48,11 +47,11 @@ namespace Rhyme.TypeSystem
             foreach(var module in _modules)
             {
                 _currentModule = module;
-                foreach(var ast_tuple in module.ResolvedSyntaxTree)
+                foreach(var astTuple in module.ResolvedSyntaxTree)
                 {
-                    _currentSymbolTable = ast_tuple.SymbolTable;
+                    _currentSymbolTable = astTuple.SymbolTable;
                     _currentSymbolTable.Reset();
-                    Visit((Node)ast_tuple.SyntaxTree);
+                    Visit((Node)astTuple.SyntaxTree);
                 }
             }
 
@@ -99,7 +98,7 @@ namespace Rhyme.TypeSystem
             if (eval_result.valid)
                 return eval_result.result;
             else
-                return null;
+                return RhymeType.NoneType;
                 //Error(binaryExpr.Op, $"Can't apply operator '{binaryExpr.Op.Lexeme}' on types '{lhs}' and '{rhs}'");
 
             return RhymeType.NoneType;
@@ -112,12 +111,10 @@ namespace Rhyme.TypeSystem
 
         public RhymeType Visit(Node.Block blockExpr)
         {
-            _currentSymbolTable.OpenScope();
+            _currentSymbolTable.NextScope();
 
             foreach(var exprstmt in blockExpr.ExpressionsStatements)
                 Visit(exprstmt);
-
-            _currentSymbolTable.CloseScope();
 
             return new RhymeType.Function(RhymeType.Void);
         }
@@ -125,7 +122,7 @@ namespace Rhyme.TypeSystem
         public RhymeType Visit(Node.BindingDeclaration bindingDecl)
         {
             var decl = bindingDecl.Declaration;
-            var decl_type = _currentSymbolTable[decl.Identifier];
+            var declType = _currentSymbolTable[decl.Identifier];
 
             if(bindingDecl.Expression is Node.Block block)
             {
@@ -142,13 +139,13 @@ namespace Rhyme.TypeSystem
                 return RhymeType.NoneType;
             }
 
-            var rhs_type = Visit(bindingDecl.Expression);
+            var rhsType = Visit(bindingDecl.Expression);
 
-            if (rhs_type == RhymeType.NoneType)
+            if (rhsType == RhymeType.NoneType)
                 return RhymeType.NoneType;
 
-            if (!decl_type.Equals(rhs_type)){
-                Error(bindingDecl.Position, $"Can not implicitly convert type '{rhs_type}' to a binding of type '{decl_type}'");
+            if (!declType.Equals(rhsType)){
+                Error(bindingDecl.Position, $"Can not implicitly convert type '{rhsType}' to a binding of type '{declType}'");
             }
             
             return RhymeType.NoneType;
@@ -156,7 +153,7 @@ namespace Rhyme.TypeSystem
 
         void Error(Position at, string message)
         {
-            Debug.WriteLine($"[X] TypeChcker @ {at.Line}: {message}");
+            Debug.WriteLine($"[{_currentModule.Name}] TypeChecker @ {at.Line}: {message}");
             HadError = true;
             _errors.Add(new PassError(at, message));
         }
@@ -178,11 +175,11 @@ namespace Rhyme.TypeSystem
                 throw new Exception("Unassignable target.");
 
             var lhs = _currentSymbolTable[((Node.Binding)assignment.Assignee).Identifier.Lexeme];
-            var eval_result = TypeEvaluate(rhs, TokenType.Equal, lhs);
+            var evalResult = TypeEvaluate(rhs, TokenType.Equal, lhs);
 
-            if (eval_result.valid)
+            if (evalResult.valid)
             {
-                return eval_result.result;
+                return evalResult.result;
             }
             else
             {
@@ -268,12 +265,7 @@ namespace Rhyme.TypeSystem
 
         public RhymeType Visit(Node.Import importStmt)
         {
-            return RhymeType.NoneType;
-        }
 
-        public RhymeType Visit(Node.Module moduleDecl)
-        {
-            //throw new NotImplementedException();
             return RhymeType.NoneType;
         }
 
@@ -306,14 +298,14 @@ namespace Rhyme.TypeSystem
 
                     if (lhs is RhymeType.Primitive && rhs is RhymeType.Primitive)
                     {
-                        if (lhs is RhymeType.Numeric lhs_num && rhs is RhymeType.Numeric rhs_num)
+                        if (lhs is RhymeType.Numeric lhsNum && rhs is RhymeType.Numeric rhsNum)
                         {
                             // Only assignment from lower numeric types to higher ones is allowed (e.g. u16 to f64)
 
-                            bool valid = lhs_num > rhs_num;
+                            bool valid = lhsNum > rhsNum;
 
                             if (valid)
-                                return (valid, RhymeType.Numeric.Max(lhs_num, rhs_num));
+                                return (valid, RhymeType.Numeric.Max(lhsNum, rhsNum));
                             else
                                 return (false, RhymeType.NoneType);
                         }

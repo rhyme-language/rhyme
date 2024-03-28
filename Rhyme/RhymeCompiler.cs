@@ -16,18 +16,18 @@ using LLVMSharp.Interop;
 
 namespace Rhyme
 {
-    internal class CompilerParameters
+    public class CompilerParameters
     {
         public string ExecutableName { get; set; } 
     }
 
-    internal record CompilerResults(
+    public record CompilerResults(
         bool HadError,
         IReadOnlyCollection<PassError> Errors,
         string PathToExecutable
     );
 
-    internal class RhymeCompiler
+    public class RhymeCompiler
     {
         public CompilerParameters Parameters { get; set; } = new CompilerParameters();
 
@@ -78,12 +78,17 @@ namespace Rhyme
             var clang_process = Process.Start(new ProcessStartInfo("clang", $"{string.Join(' ', ll_codes.Select(ll => ll.moduleName + ".ll"))} -o program.exe -g -gcodeview"));
             clang_process.WaitForExit();
             stopwatch.Stop();
+
+            if(clang_process.ExitCode == 0)
+            {
+
             Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
             Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
             Console.WriteLine("Running...\n");
             Thread.Sleep(500);
             Console.Clear();
             Process.Start("program.exe");
+            }
 
             return new CompilerResults(false, null, Parameters.ExecutableName);
 
