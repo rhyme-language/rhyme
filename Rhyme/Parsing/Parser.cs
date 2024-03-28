@@ -18,7 +18,7 @@ namespace Rhyme.Parsing
     /// - Reports syntactical errors. <br/>
     /// - Annotates tree <see cref="Node"/>s with <see cref="RhymeType"/>s. <br/>
     /// </summary>
-    internal class Parser : ICompilerPass
+    public class Parser : ICompilerPass
     {
         LinkedList<Token> _tokens;
         LinkedListNode<Token> _current;
@@ -95,7 +95,6 @@ namespace Rhyme.Parsing
 
             var module_identifier = Consume(TokenType.Identifier, "Expects a module name");
             Consume(TokenType.Semicolon, "';' Expected");
-            units.Add(new Node.Module(module_identifier));
 
             do
             {
@@ -105,7 +104,7 @@ namespace Rhyme.Parsing
                     units.Add(Binding(Match(TokenType.Extern)));
             } while (!AtEnd());
 
-            return new Node.CompilationUnit(new FileInfo(_filePath), units);
+            return new Node.CompilationUnit(module_identifier.Lexeme, new FileInfo(_filePath), units);
         }
         private RhymeType Type()
         {

@@ -10,11 +10,11 @@ using Rhyme.TypeSystem;
 
 namespace Rhyme.Resolving
 {
-    internal record Function(string Name, RhymeType.Function Type, Declaration[] Locals);
+    public record Function(string Name, RhymeType.Function Type, Declaration[] Locals);
 
-    internal record Module(
+    public record Module(
         string Name,
-        (Node.CompilationUnit SyntaxTree, IReadOnlySymbolTable SymbolTable)[] ResolvedSyntaxTree,
+        (Node.CompilationUnit SyntaxTree, SymbolTableNavigator SymbolTable)[] ResolvedSyntaxTree,
         IReadOnlyDictionary<string, Declaration> Exports
     );
 
@@ -25,7 +25,7 @@ namespace Rhyme.Resolving
     /// - Governs the static (lexical) life-time of declarations and their usage. <br />
     /// - Generates the <see cref="IReadOnlySymbolTable"/> of declarations. <br />
     /// </summary>
-    internal class Resolver : Node.IVisitor<object>, ICompilerPass
+    public class Resolver : Node.IVisitor<object>, ICompilerPass
     {
         List<PassError> _errors = new List<PassError>();
 
@@ -81,7 +81,7 @@ namespace Rhyme.Resolving
             foreach(var tree in trees)
             {
                 // We are sure syntactically that the first node is the module node
-                var module_name = ((Node.Module)tree.Units.First()).Name.Lexeme;
+                var module_name = tree.ModuleName;
 
                 if (!_moduleExports.ContainsKey(module_name))
                     _moduleExports[module_name] = new Dictionary<string, Declaration>();
@@ -97,27 +97,24 @@ namespace Rhyme.Resolving
             }
 
             var moduleTrees = new List<Node.CompilationUnit>();
+            var ast_symboltable_tuple = new List<(Node.CompilationUnit SyntaxTree, SymbolTableNavigator SymbolTable)>();
 
             // Now resolve each module
-            foreach(var tree in trees)
+            foreach (var tree in trees)
             {
                 _symbolTable = new SymbolTable();
                 DefineDebugBuiltIns();
-                _currentModuleName = ((Node.Module)tree.Units.First()).Name.Lexeme;
+                _currentModuleName = tree.ModuleName;
                 ResolveNode(tree);
+                ast_symboltable_tuple.Add((tree, _symbolTable.GetNavigator()));
             }
 
             // Group abstract syntax trees by module name
-            foreach(var group in trees.GroupBy(ast => ((Node.Module)ast.Units.First()).Name.Lexeme))
+            var m = ast_symboltable_tuple.GroupBy(ast => ast.SyntaxTree.ModuleName);
+
+            foreach (var group in ast_symboltable_tuple.GroupBy(ast => ast.SyntaxTree.ModuleName))
             {
-                var ast_symboltable_tuple = new List<(Node.CompilationUnit SyntaxTree, IReadOnlySymbolTable SymbolTable)>();
-
-                foreach (var ast in group)
-                {
-                    ast_symboltable_tuple.Add((ast, _symbolTable));
-                }
-
-                module_infos.Add(new Module(group.Key, ast_symboltable_tuple.ToArray(), _moduleExports[group.Key]));
+                module_infos.Add(new Module(group.Key, group.Select(t => t).ToArray(), _moduleExports[group.Key]));
             }
 
             return module_infos.ToArray();
@@ -313,12 +310,6 @@ namespace Rhyme.Resolving
 
             return null;
         }
-
-        public object Visit(Node.Module moduleDecl)
-        {
-            return null;
-        }
-
         #endregion
     }
 }

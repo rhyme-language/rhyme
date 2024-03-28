@@ -10,12 +10,12 @@ using Rhyme.TypeSystem;
 
 namespace Rhyme.Parsing
 {
-    internal record Declaration(RhymeType Type, string Identifier);
+    public record Declaration(RhymeType Type, string Identifier);
 
     /// <summary>
     /// Represents a node in an abstract syntax tree
     /// </summary>
-    internal interface Node
+    public interface Node
     {
         /// <summary>       
         /// Vistitor for traversing the tree.
@@ -39,7 +39,6 @@ namespace Rhyme.Parsing
 
             T Visit(BindingDeclaration bindingDecl);
             T Visit(Import importStmt);
-            T Visit(Module moduleDecl);
 
             T Visit(CompilationUnit compilationUnit);           
         }
@@ -140,15 +139,10 @@ namespace Rhyme.Parsing
             public Position Position => Name.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
-        public record Module(Token Name) : Node
-        {
-            public Position Position => Name.Position;
-            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
-        }
 
         #endregion 
 
-        public record CompilationUnit(FileInfo SourceFile, IReadOnlyCollection<Node> Units) : Node
+        public record CompilationUnit(string ModuleName, FileInfo SourceFile, IReadOnlyCollection<Node> Units) : Node
         {
             public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);

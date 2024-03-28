@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace Rhyme
 {
-    internal record CommandLineValues(FileInfo[] SourceFiles, FileInfo OutputFile);
+    public record CommandLineValues(FileInfo[] SourceFiles, FileInfo OutputFile);
 
-    internal static class CommandLineInterface
+    public static class CommandLineInterface
     {
         public static CommandLineValues GetParametersFromArguments(string[] args)
         {

@@ -9,9 +9,9 @@ using Rhyme.Parsing;
 
 namespace Rhyme.TypeSystem
 {
-    internal abstract class RhymeType
+    public abstract class RhymeType
     {
-        internal class Function : RhymeType
+        public class Function : RhymeType
         {
             public readonly RhymeType ReturnType;
             public readonly Declaration[] Parameters;
@@ -37,7 +37,7 @@ namespace Rhyme.TypeSystem
             }
         }
 
-        internal class Primitive : RhymeType
+        public class Primitive : RhymeType
         {
             private readonly string _name;
 
@@ -49,7 +49,7 @@ namespace Rhyme.TypeSystem
             public override string ToString() => _name;
         }
 
-        internal class Reference : RhymeType
+        public class Reference : RhymeType
         {
             public readonly string Name;
 
@@ -60,10 +60,10 @@ namespace Rhyme.TypeSystem
             public override string ToString() => Name;
 
         }
-        internal class Numeric : Primitive
+        public class Numeric : Primitive
         {
 
-            internal enum NumericKind
+            public enum NumericKind
             {
                 U8, U16, U32, U64, I8, I16, I32, I64, F32, F64,
             }

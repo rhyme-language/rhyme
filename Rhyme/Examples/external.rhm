@@ -1,5 +1,7 @@
 ﻿module meow;
 
-extern void() func = {
-    dprint("from external");
+import math;
+
+void() main = {
+    dprint_int(sum(1,2));
 };
