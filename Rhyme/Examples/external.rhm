@@ -1,7 +1,5 @@
-﻿module meow;
-
-import math;
+﻿module math;
 
 void() main = {
-    dprint_int(sum(1,2));
+    dprint_int(factorial(5));
 };

@@ -343,8 +343,8 @@ namespace Rhyme.Parsing
 
             while (Match(TokenType.EqualEqual, TokenType.NotEqual))
             {
+                var op = _current.Previous.Value;
                 var rhs = Comparison();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Binary(lhs, op, rhs);
             }
 
@@ -357,8 +357,8 @@ namespace Rhyme.Parsing
 
             while (Match(TokenType.GreaterThan, TokenType.GreaterEqual, TokenType.SmallerThan, TokenType.SmallerEqual))
             {
+                var op = _current.Previous.Value;
                 var rhs = Term();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Binary(lhs, op, rhs);
             }
 
@@ -371,8 +371,8 @@ namespace Rhyme.Parsing
 
             while (Match(TokenType.Plus, TokenType.Minus))
             {
+                var op = _current.Previous.Value;
                 var rhs = Factor();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Binary(lhs, op, rhs);
             }
 
@@ -384,8 +384,8 @@ namespace Rhyme.Parsing
 
             while (Match(TokenType.Asterisk, TokenType.Slash))
             {
+                var op = _current.Previous.Value;
                 var rhs = Unary();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Binary(lhs, op, rhs);
             }
 
@@ -396,8 +396,8 @@ namespace Rhyme.Parsing
         {
             if (Match(TokenType.Bang, TokenType.Minus))
             {
+                var op = _current.Previous.Value;
                 var operand = Call();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Unary(op, operand);
             }
 
