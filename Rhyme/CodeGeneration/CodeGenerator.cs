@@ -12,6 +12,7 @@ using Rhyme.TypeSystem;
 using LLVMSharp.Interop;
 using System.Net.Http.Headers;
 using System.Diagnostics;
+using LLVMSharp;
 
 namespace Rhyme.CodeGeneration
 {
@@ -41,15 +42,11 @@ namespace Rhyme.CodeGeneration
 
         Dictionary<string, string> _mangledIdentifiers = new Dictionary<string, string>();
 
- 
-
-        
-
         Dictionary<string, Action<Node.FunctionCall>> _debugBuiltIns = new Dictionary<string, Action<Node.FunctionCall>>();
 
 
-        readonly Module[] _programModules;
-        Module _currentRhymeModule = null;
+        readonly Resolving.Module[] _programModules;
+        Resolving.Module _currentRhymeModule = null;
 
         public CodeGenerator(Resolving.Module[] modules)
         {
@@ -239,16 +236,18 @@ namespace Rhyme.CodeGeneration
 
             _builder.PositionAtEnd(then_block);
             Visit(ifStmt.thenBody);
-            _builder.BuildBr(end);
+
+            if(then_block.Terminator.InstructionOpcode != LLVMOpcode.LLVMRet)
+                _builder.BuildBr(end);
 
             _builder.PositionAtEnd(else_block);
-
             if (ifStmt.elseBody != null)
             {                
                 Visit(ifStmt.elseBody);
             }
 
-            _builder.BuildBr(end);
+            if (else_block.Terminator.InstructionOpcode != LLVMOpcode.LLVMRet)
+                _builder.BuildBr(end);
 
 
             _builder.PositionAtEnd(end);
@@ -327,6 +326,15 @@ namespace Rhyme.CodeGeneration
             _debugBuiltIns.Clear();
             RhymeDebugBuiltIns();
 
+
+            foreach (var exp in _currentRhymeModule.Exports)
+            {
+                var identifier = exp.Value.Identifier;
+                var mangled = DefineMangled(identifier, $"{_currentRhymeModule.Name}.{identifier}");
+                DeclareFunction((RhymeType.Function)exp.Value.Type, mangled);
+            }
+
+
             foreach (var unit in compilationUnit.Units)
             {
                 // Note: They are globals!
@@ -334,9 +342,10 @@ namespace Rhyme.CodeGeneration
                 Visit(unit);
             }
 
-            _LLVMmodule.Verify(LLVMVerifierFailureAction.LLVMPrintMessageAction);
-           
             var ll_code = _LLVMmodule.PrintToString();
+            //Debug.WriteLine(ll_code);
+            //_LLVMmodule.Verify(LLVMVerifierFailureAction.LLVMPrintMessageAction);
+           
             return ll_code;
         }
         #endregion
@@ -416,13 +425,25 @@ namespace Rhyme.CodeGeneration
                 _params.Add(functionType.Parameters[i].Identifier, new LLVMRef(type, func.Value.Params[i]));
             }
 
-            foreach(var stmt in body.ExpressionsStatements)
+            foreach (var stmt in body.ExpressionsStatements)
             {
+                if(stmt is Node.Return)
+                {
+                    // If a block has a return, then the rest of instructions is dead code
+                    // so don't visit the rest of statements, also it's for LLVM purpose
+                    // to manage block terminators!
+                    Visit(stmt);
+                    return func;
+                }
+
                 Visit(stmt);
             }
 
-            if (functionType.ReturnType == RhymeType.Void)
+
+            if(LLVMTypeFromRhymeType(functionType.ReturnType) == LLVMTypeRef.Void)
                 _builder.BuildRetVoid();
+            else
+                _builder.BuildRet(LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, 0));
 
             return func;
         }
@@ -439,7 +460,7 @@ namespace Rhyme.CodeGeneration
                 return new LLVMRef(load.TypeOf, load);
             }
             
-            return _globals[identifier];
+            return _globals[GetMangle(identifier)];
         }
         void RhymeDebugBuiltIns()
         {
@@ -481,9 +502,10 @@ namespace Rhyme.CodeGeneration
 
         }
 
-        void DefineMangled(string name, string mangledName)
+        string DefineMangled(string name, string mangledName)
         {
-            _mangledIdentifiers.Add(name, mangledName);
+            _mangledIdentifiers[name] =  mangledName;
+            return mangledName;
         }
 
         string GetMangle(string name)

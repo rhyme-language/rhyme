@@ -23,7 +23,7 @@ namespace Rhyme.Scanner
             { "for", TokenType.For },
             { "while", TokenType.While },
             { "return", TokenType.Return },
-            { "extern", TokenType.Extern },
+            { "global", TokenType.Extern },
             { "module", TokenType.Module },
             { "import", TokenType.Import },
 
@@ -239,6 +239,9 @@ namespace Rhyme.Scanner
                 while (!AtEnd && !Match('\n', false))
                     Advance();
 
+                {
+
+                }
                 _line++;
             }
 
@@ -326,6 +329,9 @@ namespace Rhyme.Scanner
 
                 var len = _pos - start + 1;
                 var lexeme = _source.Substring(start, len);
+                if (lexeme == "0")
+                    return new Token("0", TokenType.Integer, new Position(_line, start, _pos), 0);
+               
                 return new Token(lexeme, TokenType.Integer, new Position(_line, start, _pos), Convert.ToInt32(lexeme.Remove(0,2), _base));
 
             }
