@@ -81,13 +81,12 @@ namespace Rhyme
 
             if(clang_process.ExitCode == 0)
             {
-
-            Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
-            Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
-            Console.WriteLine("Running...\n");
-            Thread.Sleep(500);
-            Console.Clear();
-            Process.Start("program.exe");
+                Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
+                Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
+                Console.WriteLine("Running...\n");
+                Thread.Sleep(500);
+                Console.Clear();
+                Process.Start("program.exe");
             }
 
             return new CompilerResults(false, null, Parameters.ExecutableName);
