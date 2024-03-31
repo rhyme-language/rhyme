@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Rhyme.Scanner
 {
-    internal enum TokenType
+    public enum TokenType
     {
 
         SingleQuote, DoubleQuote,
@@ -24,7 +24,7 @@ namespace Rhyme.Scanner
 
         // Keywords
         If, Else, For, While, Using, Var, Return,
-        Extern,
+        Extern, Module, Import,
 
         // Literals
         True, False, Null, Integer, Float, String,
@@ -34,6 +34,6 @@ namespace Rhyme.Scanner
         None,
     }
 
-    internal record Token(string Lexeme, TokenType Type, Position Position, object Value = null);
+    public record Token(string Lexeme, TokenType Type, Position Position, object Value = null);
 
 }

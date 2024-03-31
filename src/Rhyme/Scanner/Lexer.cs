@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 
 namespace Rhyme.Scanner
 {
-
-    internal class Scanner : ICompilerPass
+    public class Lexer : ICompilerPass
     {
         string _source;
         int _line;
@@ -24,7 +23,9 @@ namespace Rhyme.Scanner
             { "for", TokenType.For },
             { "while", TokenType.While },
             { "return", TokenType.Return },
-            { "extern", TokenType.Extern },
+            { "global", TokenType.Extern },
+            { "module", TokenType.Module },
+            { "import", TokenType.Import },
 
             { "var", TokenType.Var },
 
@@ -37,17 +38,11 @@ namespace Rhyme.Scanner
             {"true", TokenType.True}, {"false", TokenType.False}, {"null", TokenType.Null}
         };
 
-        public Scanner(string source)
+        public Lexer(string source)
         {
             _source = source;
             Errors = _errors;
         }
-
-        public static Scanner FromFile(string filePath)
-        {
-            return new Scanner(File.ReadAllText(filePath));
-        }
-
         public IEnumerable<Token> Scan()
         {
             _line = 1;
@@ -217,7 +212,7 @@ namespace Rhyme.Scanner
         void Error(int line, int start, int length, string message)
         {
             HadError = true;
-            _errors.Add(new PassError(line, start, length, message));
+            _errors.Add(new PassError(new Position(line, start, start + length), message));
         }
         #endregion
 
@@ -244,6 +239,9 @@ namespace Rhyme.Scanner
                 while (!AtEnd && !Match('\n', false))
                     Advance();
 
+                {
+
+                }
                 _line++;
             }
 
@@ -331,6 +329,9 @@ namespace Rhyme.Scanner
 
                 var len = _pos - start + 1;
                 var lexeme = _source.Substring(start, len);
+                if (lexeme == "0")
+                    return new Token("0", TokenType.Integer, new Position(_line, start, _pos), 0);
+               
                 return new Token(lexeme, TokenType.Integer, new Position(_line, start, _pos), Convert.ToInt32(lexeme.Remove(0,2), _base));
 
             }

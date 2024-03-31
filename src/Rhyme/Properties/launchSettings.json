@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Rhyme": {
+      "commandName": "Project",
+      "commandLineArgs": "Examples/code.rhm Examples/external.rhm -o program.exe"
+    }
+  }
+}

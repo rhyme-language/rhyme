@@ -4,32 +4,37 @@ using System.CommandLine;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 
 using Rhyme.Scanner;
+using Rhyme.TypeSystem;
 
-namespace Rhyme.Parser
+namespace Rhyme.Parsing
 {
     /// <summary>
     /// Parser compiler pass: <br/>
     /// - Parses the source code given its <see cref="Token"/>s. <br/>
     /// - Generating the abstract syntax tree (AST). <br/>
     /// - Reports syntactical errors. <br/>
-    /// - Annotates tree <see cref="Node"/>s with <see cref="Rhyme.Parser.RhymeType"/>s. <br/>
+    /// - Annotates tree <see cref="Node"/>s with <see cref="RhymeType"/>s. <br/>
     /// </summary>
-    internal class Parser : ICompilerPass
+    public class Parser : ICompilerPass
     {
         LinkedList<Token> _tokens;
         LinkedListNode<Token> _current;
 
         List<PassError> _errors = new List<PassError>();
+        string _filePath;
+
         public bool HadError { get; private set; }
         public IReadOnlyCollection<PassError> Errors { get; }
 
-        public Parser(IEnumerable<Token> Tokens)
+        public Parser(IEnumerable<Token> Tokens, string filePath)
         {
             _tokens = new LinkedList<Token>(Tokens);
             _current = _tokens.First;
             Errors = _errors;
+            _filePath = filePath;
         }
 
         public Node.CompilationUnit Parse()
@@ -81,12 +86,25 @@ namespace Rhyme.Parser
         private Node.CompilationUnit CompilationUnit()
         {
             var units = new List<Node>();
+
+            if (!Match(TokenType.Module))
+            {
+                Error(_current.Value.Position, "Expects a module declaration");
+                return null;
+            }
+
+            var module_identifier = Consume(TokenType.Identifier, "Expects a module name");
+            Consume(TokenType.Semicolon, "';' Expected");
+
             do
-            { 
-                units.Add(Binding(Match(TokenType.Extern)));
+            {
+                if (Match(TokenType.Import))
+                    units.Add(Import());
+                else
+                    units.Add(Binding(Match(TokenType.Extern)));
             } while (!AtEnd());
 
-            return new Node.CompilationUnit(units);
+            return new Node.CompilationUnit(module_identifier.Lexeme, new FileInfo(_filePath), units);
         }
         private RhymeType Type()
         {
@@ -166,6 +184,13 @@ namespace Rhyme.Parser
             }
             Consume(TokenType.Semicolon, "Expects a ';' after a binding value");
             return new Node.BindingDeclaration(decl, expr, external);
+        }
+
+        private Node Import()
+        {
+            var module = Consume(TokenType.Identifier, "Expects a module name");
+            Consume(TokenType.Semicolon, "';' Expected");
+            return new Node.Import(module);
         }
 
         private Declaration Declaration()
@@ -318,8 +343,8 @@ namespace Rhyme.Parser
 
             while (Match(TokenType.EqualEqual, TokenType.NotEqual))
             {
+                var op = _current.Previous.Value;
                 var rhs = Comparison();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Binary(lhs, op, rhs);
             }
 
@@ -332,8 +357,8 @@ namespace Rhyme.Parser
 
             while (Match(TokenType.GreaterThan, TokenType.GreaterEqual, TokenType.SmallerThan, TokenType.SmallerEqual))
             {
+                var op = _current.Previous.Value;
                 var rhs = Term();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Binary(lhs, op, rhs);
             }
 
@@ -346,8 +371,8 @@ namespace Rhyme.Parser
 
             while (Match(TokenType.Plus, TokenType.Minus))
             {
+                var op = _current.Previous.Value;
                 var rhs = Factor();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Binary(lhs, op, rhs);
             }
 
@@ -359,8 +384,8 @@ namespace Rhyme.Parser
 
             while (Match(TokenType.Asterisk, TokenType.Slash))
             {
+                var op = _current.Previous.Value;
                 var rhs = Unary();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Binary(lhs, op, rhs);
             }
 
@@ -371,8 +396,8 @@ namespace Rhyme.Parser
         {
             if (Match(TokenType.Bang, TokenType.Minus))
             {
+                var op = _current.Previous.Value;
                 var operand = Call();
-                var op = _current.Previous.Previous.Value;
                 return new Node.Unary(op, operand);
             }
 
@@ -451,7 +476,7 @@ namespace Rhyme.Parser
         {
             Console.WriteLine(message);
             HadError = true;
-            _errors.Add(new PassError(at.Line, at.Start, at.Length, message));
+            _errors.Add(new PassError(at, message));
 
             // Error recovery!
             while (_current.Next != null && _current.Value.Type != TokenType.Semicolon)
