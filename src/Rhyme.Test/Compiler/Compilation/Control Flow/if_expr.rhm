@@ -1,0 +1,8 @@
+﻿module test;
+
+void() main = {
+    if 1 == 1
+        dprint("Y");
+    else
+        dprint("N");
+};
