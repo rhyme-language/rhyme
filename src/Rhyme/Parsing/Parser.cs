@@ -104,7 +104,7 @@ namespace Rhyme.Parsing
                     units.Add(Binding(Match(TokenType.Extern)));
             } while (!AtEnd());
 
-            return new Node.CompilationUnit(module_identifier.Lexeme, new FileInfo(_filePath), units);
+            return new Node.CompilationUnit(module_identifier.Lexeme, _filePath, units);
         }
         private RhymeType Type()
         {
@@ -476,7 +476,7 @@ namespace Rhyme.Parsing
         {
             Console.WriteLine(message);
             HadError = true;
-            _errors.Add(new PassError(at, message));
+            _errors.Add(new PassError(_filePath,at, message));
 
             // Error recovery!
             while (_current.Next != null && _current.Value.Type != TokenType.Semicolon)

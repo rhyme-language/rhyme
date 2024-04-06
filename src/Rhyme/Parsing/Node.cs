@@ -142,7 +142,7 @@ namespace Rhyme.Parsing
 
         #endregion 
 
-        public record CompilationUnit(string ModuleName, FileInfo SourceFile, IReadOnlyCollection<Node> Units) : Node
+        public record CompilationUnit(string ModuleName, string SourceFile, IReadOnlyCollection<Node> Units) : Node
         {
             public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);

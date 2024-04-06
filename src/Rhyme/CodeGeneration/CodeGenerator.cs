@@ -315,7 +315,7 @@ namespace Rhyme.CodeGeneration
 
         public object Visit(Node.CompilationUnit compilationUnit)
         {
-            _moduleName = $"{_currentRhymeModule.Name}__{Path.GetFileNameWithoutExtension(compilationUnit.SourceFile.FullName)}";
+            _moduleName = $"{_currentRhymeModule.Name}__{Path.GetFileNameWithoutExtension(compilationUnit.SourceFile)}";
             _LLVMmodule = LLVMModuleRef.CreateWithName(_moduleName);
             _builder = _LLVMmodule.Context.CreateBuilder();
 

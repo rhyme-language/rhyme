@@ -43,7 +43,7 @@ namespace Rhyme.Test.Compiler.Compilation
                     var parser = new Parser(tokens, file_path);
                     syntax_trees.Add(parser.Parse());
                     if (parser.HadError)
-                        Assert.Fail($"Parser Failed", lexer.Errors);
+                        Assert.Fail($"Parser Failed", parser.Errors);
                 }
 
                 var resolver = new Resolver(syntax_trees.ToArray());

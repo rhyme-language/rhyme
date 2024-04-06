@@ -30,14 +30,15 @@ namespace Rhyme.Resolving
         List<PassError> _errors = new List<PassError>();
 
         SymbolTable _symbolTable = new SymbolTable();
-        Node.CompilationUnit[] trees;
+        Node.CompilationUnit[] _trees;
+        Node.CompilationUnit _currentTree;
 
         Dictionary<string, Dictionary<string, Declaration>> _moduleExports = new Dictionary<string, Dictionary<string, Declaration>>();
         string _currentModuleName = "UNNAMED_MODULE";
 
         public Resolver(params Node.CompilationUnit[] programs)
         {
-            trees = programs;
+            _trees = programs;
             Errors = _errors;
         }
         
@@ -48,7 +49,7 @@ namespace Rhyme.Resolving
         {
             HadError = true;
             Console.WriteLine($"[X] Resolver @ {position.Line}: {message}");
-            _errors.Add(new PassError(position, message));
+            _errors.Add(new PassError(_currentTree.SourceFile, position, message));
         }
 
 
@@ -78,8 +79,9 @@ namespace Rhyme.Resolving
             var module_infos = new List<Module>();
             
             // Extract modules
-            foreach(var tree in trees)
+            foreach(var tree in _trees)
             {
+                _currentTree = tree;
                 // We are sure syntactically that the first node is the module node
                 var module_name = tree.ModuleName;
 
@@ -100,7 +102,7 @@ namespace Rhyme.Resolving
             var ast_symboltable_tuple = new List<(Node.CompilationUnit SyntaxTree, SymbolTableNavigator SymbolTable)>();
 
             // Now resolve each module
-            foreach (var tree in trees)
+            foreach (var tree in _trees)
             {
                 _symbolTable = new SymbolTable();
                 DefineDebugBuiltIns();

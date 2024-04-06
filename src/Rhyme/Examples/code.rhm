@@ -1,9 +1,5 @@
-﻿module math;
+﻿module test;
 
-global i32(i32 num) factorial = {
-    if num == 0 {
-        return 1;
-    } else{
-        return num * factorial(num - 1);
-    };
+void() main = {
+    i32 my_var = hello_world;
 };
