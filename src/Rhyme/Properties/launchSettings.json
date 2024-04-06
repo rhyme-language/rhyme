@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Rhyme": {
-      "commandName": "Project",
-      "commandLineArgs": "Examples/code.rhm -o program.exe"
-    }
-  }
-}
