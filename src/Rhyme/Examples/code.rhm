@@ -1,5 +1,0 @@
-﻿module test;
-
-void() main = {
-    i32 my_var = hello_world;
-};

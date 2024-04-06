@@ -1,5 +1,0 @@
-﻿module math;
-
-void() main = {
-    dprint_int(factorial(5));
-};
