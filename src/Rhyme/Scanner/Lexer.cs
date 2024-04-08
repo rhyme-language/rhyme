@@ -13,6 +13,8 @@ namespace Rhyme.Scanner
         int _pos;
         List<PassError> _errors = new List<PassError>();
 
+        string path;
+
         public bool HadError { get; private set; }
         public IReadOnlyCollection<PassError> Errors { get; private set; }
 
@@ -38,9 +40,10 @@ namespace Rhyme.Scanner
             {"true", TokenType.True}, {"false", TokenType.False}, {"null", TokenType.Null}
         };
 
-        public Lexer(string source)
+        public Lexer(string filePath)
         {
-            _source = source;
+            path = filePath;
+            _source = File.ReadAllText(filePath);
             Errors = _errors;
         }
         public IEnumerable<Token> Scan()
@@ -212,7 +215,7 @@ namespace Rhyme.Scanner
         void Error(int line, int start, int length, string message)
         {
             HadError = true;
-            _errors.Add(new PassError(new Position(line, start, start + length), message));
+            _errors.Add(new PassError(path, new Position(line, start, start + length), message));
         }
         #endregion
 

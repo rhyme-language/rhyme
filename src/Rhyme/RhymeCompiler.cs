@@ -41,7 +41,7 @@ namespace Rhyme
             foreach (var file_path in files)
             {
 
-                var lexer = new Lexer(File.ReadAllText(file_path));
+                var lexer = new Lexer(file_path);
                 var tokens = lexer.Scan();
                 if (lexer.HadError)
                     return new CompilerResults(true, lexer.Errors, null);

@@ -8,7 +8,7 @@ using Rhyme.Parsing;
 using Rhyme.TypeSystem;
 using Rhyme.Resolving;
 
-namespace Rhyme.Test.Compiler.Resolver
+namespace Rhyme.Test.Compiler.Resolving
 {
     [TestClass]
     public class SymbolTableTest

@@ -19,7 +19,7 @@ namespace Rhyme
             FileInfo output_executable = null;
 
             var outputExecutableOption = new Option<FileInfo>(
-                aliases: new[] { "-o", "--output" },
+                aliases: ["-o", "--output"],
                 getDefaultValue: () => new FileInfo("program.exe"),
                 description: "Output executable file"
             );
@@ -28,7 +28,7 @@ namespace Rhyme
             {
                 Arity = ArgumentArity.OneOrMore,
             };
-
+            
             var rootCommand = new RootCommand
             {
                 sourceFilesArgument,
