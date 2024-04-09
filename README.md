@@ -1,5 +1,5 @@
 # The Rhyme Programming Language
-**Rhyme** is a multi-paradigm general-purpose programming language that emphasis simplicity, interoperability, and control.
+**Rhyme** is a multi-paradigm general-purpose programming language that emphasis simplicity, interoperability, and control.  
 *[Specification Reference](https://github.com/rhyme-language/rhyme/blob/master/docs/specs.md)*
 
 ## Main Design Outlines
