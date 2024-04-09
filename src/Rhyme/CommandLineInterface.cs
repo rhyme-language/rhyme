@@ -39,6 +39,18 @@ namespace Rhyme
             {
                 var results = ctx.ParseResult;
                 source_files = results.GetValueForArgument(sourceFilesArgument);
+
+                foreach(var file in source_files)
+                {
+                    if (file.Exists == false)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Write("error: ");
+                        Console.ResetColor();
+                        Console.WriteLine($"Can't find file {file.FullName}");
+                        Environment.Exit(-1);
+                    }
+                }
                 output_executable = results.GetValueForOption(outputExecutableOption);
             });
 
