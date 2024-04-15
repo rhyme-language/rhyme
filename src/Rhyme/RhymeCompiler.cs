@@ -38,6 +38,7 @@ namespace Rhyme
 
             var syntax_trees = new List<Node.CompilationUnit>();
 
+           
             foreach (var file_path in files)
             {
 
@@ -75,18 +76,18 @@ namespace Rhyme
                 File.WriteAllText($"{code.moduleName}.ll", code.llvmCode);
             }
 
-            var clang_process = Process.Start(new ProcessStartInfo("clang", $"{string.Join(' ', ll_codes.Select(ll => ll.moduleName + ".ll"))} -o program.exe -g -gcodeview"));
+            var clang_process = Process.Start(new ProcessStartInfo("clang", $"{string.Join(' ', ll_codes.Select(ll => ll.moduleName + ".ll"))} -o {Parameters.ExecutableName} -g -gcodeview"));
             clang_process.WaitForExit();
             stopwatch.Stop();
 
             if(clang_process.ExitCode == 0)
             {
-                Console.WriteLine($"Output: {Path.GetFullPath("program.exe")}");
+                Console.WriteLine($"Output: {Path.GetFullPath(Parameters.ExecutableName)}");
                 Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
                 Console.WriteLine("Running...\n");
                 Thread.Sleep(500);
                 Console.Clear();
-                Process.Start("program.exe");
+                Process.Start(Parameters.ExecutableName);
             }
 
             return new CompilerResults(false, null, Parameters.ExecutableName);

@@ -1,0 +1,10 @@
+// The Input/Output Library
+
+module io;
+
+var cio = %cinclude("stdio.h");
+
+
+global void(str txt) print = {
+    
+};
