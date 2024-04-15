@@ -263,7 +263,8 @@ namespace Rhyme.TypeSystem
 
         public RhymeType Visit(Node.Directive directive)
         {
-            throw new NotImplementedException();
+
+            return null;
         }
 
         public RhymeType Visit(Node.Import importStmt)

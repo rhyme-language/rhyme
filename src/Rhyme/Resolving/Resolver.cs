@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
-
+using Rhyme.C;
 using Rhyme.Parsing;
 using Rhyme.TypeSystem;
 
@@ -23,7 +24,7 @@ namespace Rhyme.Resolving
     /// - Walks on a tree of <see cref="Node.CompilationUnit"></see> <br />
     /// - Checks identifiers and declarations scopes. <br />
     /// - Governs the static (lexical) life-time of declarations and their usage. <br />
-    /// - Generates the <see cref="IReadOnlySymbolTable"/> of declarations. <br />
+    /// - Generates the <see cref="SymbolTableNavigator"/> of declarations. <br />
     /// </summary>
     public class Resolver : Node.IVisitor<object>, ICompilerPass
     {
@@ -269,28 +270,44 @@ namespace Rhyme.Resolving
             throw new NotImplementedException();
         }
 
+        void CInclude(Node.Directive directive)
+        {
+            var header = ((Node.Literal)directive.Arguments[0]).ValueToken.Value.ToString();
+            string path = "";
+            // It's a standard header
+            if (File.Exists(Path.Join(CRT.IncludePath, header))) { 
+                path = Path.Join(CRT.IncludePath, header);
+            }
+            else
+            {
+                if (!File.Exists(header))
+                {
+                    Error(directive.Position, $"File {header} can't be found");
+                    return;
+                }
+
+                path = header;
+            }
+
+            var cfile = new CFile(path);
+        }
         public object Visit(Node.Directive directive)
         {
-            if (directive.Identifier.Lexeme == "import")
+            if (directive.Identifier.Lexeme == "cinclude")
             {
                 if (directive.Arguments.Length != 1)
                 {
-                    Error(directive.Position, "Directive 'import' expects 1 argument");
+                    Error(directive.Position, "Directive 'cinclude' expects 1 argument");
                     return null;
                 }
 
                 if (directive.Arguments[0] is Node.Literal import_file && import_file.ValueToken.Value is string file_name)
                 {
-                    if (!File.Exists(file_name))
-                    {
-                        Error(directive.Position, $"File '{file_name}' doesn't exist");
-                        return null;
-                    }
-
+                    CInclude(directive);
                 }
                 else
                 {
-                    Error(directive.Position, $"Directive 'import' expects a str for the file path");
+                    Error(directive.Position, $"Directive 'cinclude' expects a str for the file path");
                 }
             }
             return null;

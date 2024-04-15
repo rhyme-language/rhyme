@@ -10,7 +10,16 @@ using Rhyme.TypeSystem;
 
 namespace Rhyme.Parsing
 {
-    public record Declaration(RhymeType Type, string Identifier);
+    public record Declaration(RhymeType Type, string Identifier)
+    {
+        public static Declaration CreateFunction(string identifier, RhymeType returnType, params Declaration[] parameters)
+        {
+            return new Declaration(
+                new RhymeType.Function(returnType, parameters),
+                identifier
+            );
+        }
+    };
 
     /// <summary>
     /// Represents a node in an abstract syntax tree

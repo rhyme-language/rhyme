@@ -14,6 +14,8 @@ using Rhyme.Parsing;
 using Rhyme.Resolving;
 using Rhyme.TypeSystem;
 using Rhyme.CodeGeneration;
+using Rhyme.C;
+
 
 var console_options = CommandLineInterface.GetParametersFromArguments(args);
 
