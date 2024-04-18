@@ -67,9 +67,19 @@ HEX_DIG: [0-9a-fA-F];
 ```
 Integral literals are constants.  
 
-## Bindings
+## Declarations
+Declarations are named component which can be referenced by their identifers. No identifier can be redeclared, nor shadowed in an inner scope.
+### Functions
+A function declaration must declares its identifer, return type, and 
+```
+funcDecl: type identifier '(' * ')' block;
+```
+Functions are called when applied to the parenthesis operators. 
+When a function is referred it returns a `type` object.
+
+### Bindings
 ```antlr4
-binding_decl: data_type identifier; 
+bindingDecl: data_type identifier; 
 ```
 A binding is a named reference to a value.
 
