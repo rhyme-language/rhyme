@@ -25,7 +25,8 @@ namespace Rhyme.Scanner
             { "for", TokenType.For },
             { "while", TokenType.While },
             { "return", TokenType.Return },
-            { "global", TokenType.Extern },
+            { "global", TokenType.Global },
+            { "extern", TokenType.Extern },
             { "module", TokenType.Module },
             { "import", TokenType.Import },
 

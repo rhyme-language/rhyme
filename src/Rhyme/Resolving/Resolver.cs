@@ -91,10 +91,15 @@ namespace Rhyme.Resolving
 
                 foreach(var unit in tree.Units)
                 {
-                    if(unit is Node.BindingDeclaration binding)
+                    if(unit is Node.TopLevelDeclaration declaration)
                     {
-                        if(binding.Export)
-                            _moduleExports[module_name].Add(binding.Declaration.Identifier, binding.Declaration);
+                        if (declaration.Modifier == DeclarationAccessModifier.Global)
+                        {
+                            if(declaration.declarationNode is Node.BindingDeclaration binding)
+                            {
+                                _moduleExports[module_name].Add(binding.Declaration.Identifier, binding.Declaration);
+                            }
+                        }
                     }
                 }
             }
@@ -327,6 +332,12 @@ namespace Rhyme.Resolving
                 _symbolTable.Define(exp);
             }
 
+            return null;
+        }
+
+        public object Visit(Node.TopLevelDeclaration topLevelDeclaration)
+        {
+            ResolveNode(topLevelDeclaration.declarationNode);
             return null;
         }
         #endregion

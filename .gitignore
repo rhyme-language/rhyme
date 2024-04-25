@@ -364,4 +364,6 @@ FodyWeavers.xsd
 
 # Debug Launch Settings
 launchSettings.json
-/docs/.antlr
+
+# ANTLR metadata
+.antlr

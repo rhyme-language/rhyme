@@ -96,15 +96,33 @@ namespace Rhyme.Parsing
             var module_identifier = Consume(TokenType.Identifier, "Expects a module name");
             Consume(TokenType.Semicolon, "';' Expected");
 
-            do
+            while (Match(TokenType.Import))
             {
-                if (Match(TokenType.Import))
-                    units.Add(Import());
-                else
-                    units.Add(Binding(Match(TokenType.Extern)));
+                units.Add(Import());
+            }
+
+            do
+            {    
+                units.Add(TopLevelDeclaration());
             } while (!AtEnd());
 
             return new Node.CompilationUnit(module_identifier.Lexeme, _filePath, units);
+        }
+
+        private Node TopLevelDeclaration()
+        {
+            bool _extern = Match(TokenType.Extern);
+            bool _global = Match(TokenType.Global);
+
+            var modifier = DeclarationAccessModifier.None;
+
+            if (_extern)
+                modifier = DeclarationAccessModifier.Extern;
+
+            if (_global)
+                modifier = DeclarationAccessModifier.Global;
+
+            return new Node.TopLevelDeclaration(BindingDeclaration(), modifier);
         }
         private RhymeType Type()
         {
@@ -170,7 +188,7 @@ namespace Rhyme.Parsing
             throw new NotImplementedException();
         }
 
-        private Node Binding(bool external)
+        private Node BindingDeclaration()
         {
             Declaration decl = Declaration();
 
@@ -183,7 +201,7 @@ namespace Rhyme.Parsing
                 expr = Expression();
             }
             Consume(TokenType.Semicolon, "Expects a ';' after a binding value");
-            return new Node.BindingDeclaration(decl, expr, external);
+            return new Node.BindingDeclaration(decl, expr);
         }
 
         private Node Import()
@@ -248,7 +266,7 @@ namespace Rhyme.Parsing
         private Node Statement()
         {
 
-            var node = Binding(false);
+            var node = BindingDeclaration();
 
             if (node != null)
                 return node;

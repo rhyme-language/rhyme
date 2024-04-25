@@ -333,6 +333,11 @@ namespace Rhyme.TypeSystem
             return (false, RhymeType.NoneType);
         }
 
+        public RhymeType Visit(Node.TopLevelDeclaration topLevelDeclaration)
+        {
+            return Visit(topLevelDeclaration.declarationNode);
+        }
+
         #endregion
 
     }
