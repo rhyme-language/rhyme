@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# ANTLR Metadata
+.antlr/
+/docs/.antlr/RhymeLexer.interp
+/docs/.antlr/RhymeLexer.java
+/docs/.antlr/RhymeLexer.tokens
