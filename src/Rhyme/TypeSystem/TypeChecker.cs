@@ -19,6 +19,8 @@ namespace Rhyme.TypeSystem
         
         private List<PassError> _errors = new List<PassError>();
 
+        Node.CompilationUnit _currentTree;
+
         private readonly Module[] _modules;
         private Module _currentModule;
 
@@ -49,6 +51,7 @@ namespace Rhyme.TypeSystem
                 _currentModule = module;
                 foreach(var astTuple in module.ResolvedSyntaxTree)
                 {
+                    _currentTree = astTuple.SyntaxTree;
                     _currentSymbolTable = astTuple.SymbolTable;
                     _currentSymbolTable.Reset();
                     Visit((Node)astTuple.SyntaxTree);
@@ -155,7 +158,7 @@ namespace Rhyme.TypeSystem
         {
             Debug.WriteLine($"[{_currentModule.Name}] TypeChecker @ {at.Line}: {message}");
             HadError = true;
-            _errors.Add(new PassError(at, message));
+            _errors.Add(new PassError(_currentTree.SourceFile, at, message));
         }
         public RhymeType Visit(Node.If ifStmt)
         {
@@ -260,7 +263,8 @@ namespace Rhyme.TypeSystem
 
         public RhymeType Visit(Node.Directive directive)
         {
-            throw new NotImplementedException();
+
+            return null;
         }
 
         public RhymeType Visit(Node.Import importStmt)
@@ -327,6 +331,11 @@ namespace Rhyme.TypeSystem
             }
 
             return (false, RhymeType.NoneType);
+        }
+
+        public RhymeType Visit(Node.TopLevelDeclaration topLevelDeclaration)
+        {
+            return Visit(topLevelDeclaration.declarationNode);
         }
 
         #endregion

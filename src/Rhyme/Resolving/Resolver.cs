@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
-
+using Rhyme.C;
 using Rhyme.Parsing;
 using Rhyme.TypeSystem;
 
@@ -23,21 +24,22 @@ namespace Rhyme.Resolving
     /// - Walks on a tree of <see cref="Node.CompilationUnit"></see> <br />
     /// - Checks identifiers and declarations scopes. <br />
     /// - Governs the static (lexical) life-time of declarations and their usage. <br />
-    /// - Generates the <see cref="IReadOnlySymbolTable"/> of declarations. <br />
+    /// - Generates the <see cref="SymbolTableNavigator"/> of declarations. <br />
     /// </summary>
     public class Resolver : Node.IVisitor<object>, ICompilerPass
     {
         List<PassError> _errors = new List<PassError>();
 
         SymbolTable _symbolTable = new SymbolTable();
-        Node.CompilationUnit[] trees;
+        Node.CompilationUnit[] _trees;
+        Node.CompilationUnit _currentTree;
 
         Dictionary<string, Dictionary<string, Declaration>> _moduleExports = new Dictionary<string, Dictionary<string, Declaration>>();
         string _currentModuleName = "UNNAMED_MODULE";
 
         public Resolver(params Node.CompilationUnit[] programs)
         {
-            trees = programs;
+            _trees = programs;
             Errors = _errors;
         }
         
@@ -48,7 +50,7 @@ namespace Rhyme.Resolving
         {
             HadError = true;
             Console.WriteLine($"[X] Resolver @ {position.Line}: {message}");
-            _errors.Add(new PassError(position, message));
+            _errors.Add(new PassError(_currentTree.SourceFile, position, message));
         }
 
 
@@ -78,8 +80,9 @@ namespace Rhyme.Resolving
             var module_infos = new List<Module>();
             
             // Extract modules
-            foreach(var tree in trees)
+            foreach(var tree in _trees)
             {
+                _currentTree = tree;
                 // We are sure syntactically that the first node is the module node
                 var module_name = tree.ModuleName;
 
@@ -88,10 +91,15 @@ namespace Rhyme.Resolving
 
                 foreach(var unit in tree.Units)
                 {
-                    if(unit is Node.BindingDeclaration binding)
+                    if(unit is Node.TopLevelDeclaration declaration)
                     {
-                        if(binding.Export)
-                            _moduleExports[module_name].Add(binding.Declaration.Identifier, binding.Declaration);
+                        if (declaration.Modifier == DeclarationAccessModifier.Global)
+                        {
+                            if(declaration.declarationNode is Node.BindingDeclaration binding)
+                            {
+                                _moduleExports[module_name].Add(binding.Declaration.Identifier, binding.Declaration);
+                            }
+                        }
                     }
                 }
             }
@@ -100,7 +108,7 @@ namespace Rhyme.Resolving
             var ast_symboltable_tuple = new List<(Node.CompilationUnit SyntaxTree, SymbolTableNavigator SymbolTable)>();
 
             // Now resolve each module
-            foreach (var tree in trees)
+            foreach (var tree in _trees)
             {
                 _symbolTable = new SymbolTable();
                 DefineDebugBuiltIns();
@@ -267,28 +275,44 @@ namespace Rhyme.Resolving
             throw new NotImplementedException();
         }
 
+        void CInclude(Node.Directive directive)
+        {
+            var header = ((Node.Literal)directive.Arguments[0]).ValueToken.Value.ToString();
+            string path = "";
+            // It's a standard header
+            if (File.Exists(Path.Join(CRT.IncludePath, header))) { 
+                path = Path.Join(CRT.IncludePath, header);
+            }
+            else
+            {
+                if (!File.Exists(header))
+                {
+                    Error(directive.Position, $"File {header} can't be found");
+                    return;
+                }
+
+                path = header;
+            }
+
+            var cfile = new CFile(path);
+        }
         public object Visit(Node.Directive directive)
         {
-            if (directive.Identifier.Lexeme == "import")
+            if (directive.Identifier.Lexeme == "cinclude")
             {
                 if (directive.Arguments.Length != 1)
                 {
-                    Error(directive.Position, "Directive 'import' expects 1 argument");
+                    Error(directive.Position, "Directive 'cinclude' expects 1 argument");
                     return null;
                 }
 
                 if (directive.Arguments[0] is Node.Literal import_file && import_file.ValueToken.Value is string file_name)
                 {
-                    if (!File.Exists(file_name))
-                    {
-                        Error(directive.Position, $"File '{file_name}' doesn't exist");
-                        return null;
-                    }
-
+                    CInclude(directive);
                 }
                 else
                 {
-                    Error(directive.Position, $"Directive 'import' expects a str for the file path");
+                    Error(directive.Position, $"Directive 'cinclude' expects a str for the file path");
                 }
             }
             return null;
@@ -308,6 +332,12 @@ namespace Rhyme.Resolving
                 _symbolTable.Define(exp);
             }
 
+            return null;
+        }
+
+        public object Visit(Node.TopLevelDeclaration topLevelDeclaration)
+        {
+            ResolveNode(topLevelDeclaration.declarationNode);
             return null;
         }
         #endregion

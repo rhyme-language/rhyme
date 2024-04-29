@@ -13,6 +13,7 @@ using LLVMSharp.Interop;
 using System.Net.Http.Headers;
 using System.Diagnostics;
 using LLVMSharp;
+using ClangSharp;
 
 namespace Rhyme.CodeGeneration
 {
@@ -188,21 +189,7 @@ namespace Rhyme.CodeGeneration
             // Functions
             if (bindingDecl.Declaration.Type is RhymeType.Function funcType)
             {
-                DefineMangled(identifier, bindingDecl.Export ? $"{_currentRhymeModule.Name}.{identifier}" : identifier);
-
-                var func = DefineFunction(GetMangle(identifier), funcType, ((Node.Block)bindingDecl.Expression));
-
-                if(bindingDecl.Export)
-                    unsafe { LLVM.SetLinkage(func.Value, LLVMLinkage.LLVMExternalLinkage); }
-
-                if (_global)
-                {
-                    if(identifier == "main")
-                    {
-                        unsafe { LLVM.SetLinkage(func.Value, LLVMLinkage.LLVMExternalLinkage); }
-                    }
-                }
-                return null;
+                throw new NotImplementedException("Local Closures");
             }
             
 
@@ -313,9 +300,43 @@ namespace Rhyme.CodeGeneration
             return null;
         }
 
+        public object Visit(Node.TopLevelDeclaration topLevelDeclaration)
+        {
+            switch (topLevelDeclaration.declarationNode)
+            {
+                case Node.BindingDeclaration bindDecl:
+                    {
+                        var identifier = bindDecl.Declaration.Identifier;
+
+                        // Functions
+                        if (bindDecl.Declaration.Type is RhymeType.Function funcType)
+                        {
+                            DefineMangled(identifier, topLevelDeclaration.Modifier == DeclarationAccessModifier.Global ? $"{_currentRhymeModule.Name}.{identifier}" : identifier);
+
+                            var func = DefineFunction(GetMangle(identifier), funcType, (Node.Block)bindDecl.Expression);
+
+                            if(topLevelDeclaration.Modifier == DeclarationAccessModifier.Global)
+                            {
+                                unsafe { LLVM.SetLinkage(func.Value, LLVMLinkage.LLVMExternalLinkage); }
+                            }
+
+                            if (identifier == "main")
+                            {
+                                unsafe { LLVM.SetLinkage(func.Value, LLVMLinkage.LLVMExternalLinkage); }
+                            }
+
+                            return null;
+                        }
+                    }
+                    break;
+            }
+            //Visit(topLevelDeclaration.declarationNode);
+            return null;
+        }
+
         public object Visit(Node.CompilationUnit compilationUnit)
         {
-            _moduleName = $"{_currentRhymeModule.Name}__{Path.GetFileNameWithoutExtension(compilationUnit.SourceFile.FullName)}";
+            _moduleName = $"{_currentRhymeModule.Name}__{Path.GetFileNameWithoutExtension(compilationUnit.SourceFile)}";
             _LLVMmodule = LLVMModuleRef.CreateWithName(_moduleName);
             _builder = _LLVMmodule.Context.CreateBuilder();
 
@@ -348,6 +369,8 @@ namespace Rhyme.CodeGeneration
            
             return ll_code;
         }
+
+
         #endregion
 
 
@@ -515,6 +538,8 @@ namespace Rhyme.CodeGeneration
             else
                 return name;
         }
+
+
 
         #endregion
     }

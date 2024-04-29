@@ -37,6 +37,7 @@ namespace Rhyme.TypeSystem
             }
         }
 
+        public class Namespace : RhymeType {}
         public class Primitive : RhymeType
         {
             private readonly string _name;

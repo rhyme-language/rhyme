@@ -10,7 +10,23 @@ using Rhyme.TypeSystem;
 
 namespace Rhyme.Parsing
 {
-    public record Declaration(RhymeType Type, string Identifier);
+    public record Declaration(RhymeType Type, string Identifier)
+    {
+        public static Declaration CreateFunction(string identifier, RhymeType returnType, params Declaration[] parameters)
+        {
+            return new Declaration(
+                new RhymeType.Function(returnType, parameters),
+                identifier
+            );
+        }
+    };
+
+    public enum DeclarationAccessModifier
+    {
+        None,
+        Extern,
+        Global,
+    }
 
     /// <summary>
     /// Represents a node in an abstract syntax tree
@@ -36,7 +52,7 @@ namespace Rhyme.Parsing
             T Visit(Return returnStmt);
             T Visit(Get member);
             T Visit(Directive directive);
-
+            T Visit(TopLevelDeclaration topLevelDeclaration);
             T Visit(BindingDeclaration bindingDecl);
             T Visit(Import importStmt);
 
@@ -128,7 +144,14 @@ namespace Rhyme.Parsing
         #endregion
 
         #region Declarations
-        public record BindingDeclaration(Declaration Declaration, Node Expression, bool Export) : Node
+
+        public record TopLevelDeclaration(Node declarationNode, DeclarationAccessModifier Modifier) : Node
+        {
+
+            public Position Position => declarationNode.Position;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+        public record BindingDeclaration(Declaration Declaration, Node Expression) : Node
         {
             public Position Position => Expression.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
@@ -142,7 +165,7 @@ namespace Rhyme.Parsing
 
         #endregion 
 
-        public record CompilationUnit(string ModuleName, FileInfo SourceFile, IReadOnlyCollection<Node> Units) : Node
+        public record CompilationUnit(string ModuleName, string SourceFile, IReadOnlyCollection<Node> Units) : Node
         {
             public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
