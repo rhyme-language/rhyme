@@ -39,24 +39,37 @@ namespace Rhyme.Parsing
         /// <typeparam name="T">Return type of a visit operation.</typeparam>
         public interface IVisitor<T>
         {
-            T Visit(Literal literalExpr);
-            T Visit(Binary binaryExpr);
-            T Visit(Unary unaryExpr);
-            T Visit(Block blockExpr);
-            T Visit(FunctionCall callExpr);
-            T Visit(If ifStmt);
-            T Visit(While whileStmt);
-            T Visit(Grouping grouping);
-            T Visit(Binding binding);
-            T Visit(Assignment assignment);
-            T Visit(Return returnStmt);
-            T Visit(Get member);
-            T Visit(Directive directive);
-            T Visit(TopLevelDeclaration topLevelDeclaration);
-            T Visit(BindingDeclaration bindingDecl);
-            T Visit(Import importStmt);
+            T Visit(Literal literalExpr) => default;
+            T Visit(Binary binaryExpr) => default;
+            T Visit(Unary unaryExpr) => default;
+            T Visit(Block blockExpr) => default;
+            T Visit(FunctionCall callExpr) => default;
+            T Visit(If ifStmt) => default;
+            T Visit(While whileStmt) => default;
+            T Visit(Grouping grouping) => default;
+            T Visit(Binding binding) => default;
+            T Visit(Assignment assignment) => default;
+            T Visit(Return returnStmt) => default;
+            T Visit(Get member) => default;
+            T Visit(Directive directive) => default;
+            T Visit(TopLevelDeclaration topLevelDeclaration) => default;
+            T Visit(BindingDeclaration bindingDecl) => default;
+            T Visit(FunctionDeclaration funcDecl) => default;
+            T Visit(IdentifierType identiferType) => default;
+            T Visit(FuncType funcType) => default;
+            T Visit(ImportStmt importStmt) => default;
+            T Visit(ModuleDecl moduleDecl) => default;
+            T Visit(CompilationUnit compilationUnit) {
+                Visit(compilationUnit.ModuleDeclaration);
 
-            T Visit(CompilationUnit compilationUnit);           
+                foreach (var imp in compilationUnit.ImportStatements)
+                    Visit(imp);
+
+                foreach (var tlDecl in compilationUnit.TopLevelDeclarations)
+                    Visit(tlDecl);
+
+                return default;
+            }      
         }
         public T Accept<T>(IVisitor<T> visitor);
         public Position Position { get; }
@@ -71,21 +84,21 @@ namespace Rhyme.Parsing
 
         public record Binary(Node Left, Token Op, Node Right) : Node
         {
-            public Position Position => new Position(Left.Position.Line, Left.Position.Start, Right.Position.End);
+            public Position Position => new(Left.Position.Line, Left.Position.Start, Right.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
 
         public record Unary(Token Op, Node Operand) : Node
         {
-            public Position Position => new Position(Op.Position.Line, Operand.Position.Start, Operand.Position.End);
+            public Position Position => new(Op.Position.Line, Operand.Position.Start, Operand.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
 
         public record FunctionCall(Node Callee, params Node[] Args) : Node
         {
-            public Position Position => new Position(Callee.Position.Line, Callee.Position.Start, Args.Length > 0 ? Args[^1].Position.End : Callee.Position.End);
+            public Position Position => new(Callee.Position.Line, Callee.Position.Start, Args.Length > 0 ? Args[^1].Position.End : Callee.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
         public record Binding(Token Identifier) : Node
@@ -100,7 +113,7 @@ namespace Rhyme.Parsing
         }
         public record Assignment(Node Assignee, Node Expression) : Node
         {
-            public Position Position => new Position(Assignee.Position.Line, Assignee.Position.Start, Expression.Position.End);
+            public Position Position => new(Assignee.Position.Line, Assignee.Position.Start, Expression.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
@@ -144,28 +157,60 @@ namespace Rhyme.Parsing
         #endregion
 
         #region Declarations
-
-        public record TopLevelDeclaration(Node declarationNode, DeclarationAccessModifier Modifier) : Node
+        public record TopLevelDeclaration(Node DeclarationNode, DeclarationAccessModifier Modifier) : Node
         {
-
-            public Position Position => declarationNode.Position;
+            public Position Position => DeclarationNode.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
-        public record BindingDeclaration(Declaration Declaration, Node Expression) : Node
+        public record BindingDeclaration(Type type, params Declarator[] Declarators) : Node
         {
-            public Position Position => Expression.Position;
+            public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
-        public record Import(Token Name) : Node
+        public record Declarator(Token Identifier, Node Initializer);
+
+        public record ImportStmt(Token Name) : Node
         {
             public Position Position => Name.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
+
+        public abstract record Type : Node
+        {
+            public Position Position => Position.NonePosition;
+            public T Accept<T>(IVisitor<T> visitor) => default;
+        }
+
+        public record FuncType(Type ReturnType, params ParamDecl[] Parameters) : Type
+        {
+            public new Position Position => Position.NonePosition;
+            public new T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+
+        public record IdentifierType(Token Identifier) : Type
+        {
+            public new Position Position => Identifier.Position;
+            public new T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+
+        public record ParamDecl(Type Type, Token Identifier);
+
+        public record ModuleDecl(Token Identifier) : Node
+        {
+            public Position Position => Position.NonePosition;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
+        
+        public record FunctionDeclaration(Type ReturnType, Token Identifier, ParamDecl[] Parameters, Block Block) : Node
+        {
+            public Position Position => Position.NonePosition;
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        }
         #endregion 
 
-        public record CompilationUnit(string ModuleName, string SourceFile, IReadOnlyCollection<Node> Units) : Node
+        public record CompilationUnit(ModuleDecl ModuleDeclaration, IReadOnlyList<ImportStmt> ImportStatements, IReadOnlyList<TopLevelDeclaration> TopLevelDeclarations) : Node
         {
             public Position Position => Position.NonePosition;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);

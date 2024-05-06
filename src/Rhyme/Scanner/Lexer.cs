@@ -11,14 +11,14 @@ namespace Rhyme.Scanner
         string _source;
         int _line;
         int _pos;
-        List<PassError> _errors = new List<PassError>();
+        List<PassError> _errors = new();
 
         string path;
 
         public bool HadError { get; private set; }
         public IReadOnlyCollection<PassError> Errors { get; private set; }
 
-        Dictionary<string, TokenType> _keywords = new Dictionary<string, TokenType>() {
+        Dictionary<string, TokenType> _keywords = new() {
             { "if", TokenType.If },
             { "else", TokenType.Else },
             { "using", TokenType.Using },
@@ -29,14 +29,7 @@ namespace Rhyme.Scanner
             { "extern", TokenType.Extern },
             { "module", TokenType.Module },
             { "import", TokenType.Import },
-
-            { "var", TokenType.Var },
-
-            // Primitive Types
-            { "void", TokenType.Void }, {"str", TokenType.Str }, {"bol", TokenType.Bol }, 
-            { "u8", TokenType.U8 }, { "u16", TokenType.U16 }, { "u32", TokenType.U32 }, { "u64", TokenType.U64 },
-            { "i8", TokenType.I8 }, { "i16", TokenType.I16 }, { "i32", TokenType.I32 }, { "i64", TokenType.I64 },
-
+            { "fn", TokenType.Fn },
             // Literals
             {"true", TokenType.True}, {"false", TokenType.False}, {"null", TokenType.Null}
         };
@@ -73,10 +66,10 @@ namespace Rhyme.Scanner
                         }
                         break;
 
-                    case '(': token_type = TokenType.LeftParen; break;
-                    case ')': token_type = TokenType.RightParen; break;
-                    case '{': token_type = TokenType.LeftCurly; break;
-                    case '}': token_type = TokenType.RightCurly; break;
+                    case '(': token_type = TokenType.OpenParen; break;
+                    case ')': token_type = TokenType.CloseParen; break;
+                    case '{': token_type = TokenType.OpenCurly; break;
+                    case '}': token_type = TokenType.CloseCurly; break;
 
                     
                     case '>':

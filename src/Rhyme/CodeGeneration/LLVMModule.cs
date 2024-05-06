@@ -18,7 +18,7 @@ namespace Rhyme.CodeGeneration
     /// </summary>
     public class LLVMModule
     {
-        Dictionary<string, string> _mangledIdentifiers = new Dictionary<string, string>();
+        Dictionary<string, string> _mangledIdentifiers = new();
 
         public string Name { get; }
 

@@ -107,21 +107,7 @@ namespace Rhyme.TypeSystem
         {
             switch (token.Type)
             {
-                case TokenType.Void: return Void;
-
-                case TokenType.U8: return U8;
-                case TokenType.U16: return U16;
-                case TokenType.U32: return U32;
-                case TokenType.U64: return U64;
-                case TokenType.I8: return I8;
-                case TokenType.I16: return I16;
-                case TokenType.I32: return I32;
-                case TokenType.I64: return I64;
-                case TokenType.F32: return F32;
-                case TokenType.F64: return F64;
-                case TokenType.Str: return Str;
-                case TokenType.Bol: return Bol;
-
+                /*TODO*/
                 case TokenType.Identifier: return new Reference(token.Lexeme);
                 default: return NoneType;
             };

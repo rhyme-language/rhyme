@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
-using Rhyme;
 using Rhyme.Scanner;
 using Rhyme.Parsing;
 using Rhyme.Resolving;
@@ -13,6 +11,8 @@ using Rhyme.CodeGeneration;
 using System.Threading;
 using System.Diagnostics;
 using LLVMSharp.Interop;
+using Rhyme.Modularizing;
+using System.CommandLine.Parsing;
 
 namespace Rhyme
 {
@@ -36,23 +36,35 @@ namespace Rhyme
         {
             var stopwatch = Stopwatch.StartNew();
 
-            var syntax_trees = new List<Node.CompilationUnit>();
 
-           
-            foreach (var file_path in files)
+            var units = new List<CompilationUnit>(files.Select(f => new CompilationUnit(f)));
+            foreach (var unit in units)
             {
-
-                var lexer = new Lexer(file_path);
-                var tokens = lexer.Scan();
-                if (lexer.HadError)
-                    return new CompilerResults(true, lexer.Errors, null);
-
-                var parser = new Parser(tokens, file_path);
-                syntax_trees.Add(parser.Parse());
-                if (parser.HadError)
-                    return new CompilerResults(true, parser.Errors, null);
+                var parseErrors = unit.Parse();
+                if (parseErrors.Count > 0)
+                    return new CompilerResults(true, parseErrors, null);
             }
 
+            var modularizer = new Modularizer(units.ToArray());
+            var modulesInfo = modularizer.Modularize();
+            if(modularizer.HadError)
+                return new CompilerResults(true, modularizer.Errors, null);
+               
+            foreach (var unit in units)
+            { 
+                unit.Modularize(modulesInfo);
+
+                var resolveErrors = unit.Resolve();
+                if (resolveErrors.Count > 0)
+                    return new CompilerResults(true, resolveErrors, null);
+
+                var typeErrors = unit.TypeCheck();
+                if (typeErrors.Count > 0)
+                    return new CompilerResults(true, typeErrors, null);
+
+            }
+
+#if NONE
             var resolver = new Resolver(syntax_trees.ToArray());
             var modules = resolver.Resolve();
             if (resolver.HadError)
@@ -89,7 +101,7 @@ namespace Rhyme
                 Console.Clear();
                 Process.Start(Parameters.ExecutableName);
             }
-
+#endif
             return new CompilerResults(false, null, Parameters.ExecutableName);
 
         }

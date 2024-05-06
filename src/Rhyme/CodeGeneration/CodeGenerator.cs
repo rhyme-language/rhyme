@@ -27,23 +27,22 @@ namespace Rhyme.CodeGeneration
     {
         record LLVMRef(LLVMTypeRef Type, LLVMValueRef Value);
 
-        private List<PassError> _errors = new List<PassError>();
+        private List<PassError> _errors = new();
 
-        private Dictionary<string, LLVMRef> _locals = new Dictionary<string, LLVMRef>();
-        private Dictionary<string, LLVMRef> _params = new Dictionary<string, LLVMRef>();
-        private Dictionary<string, LLVMRef> _globals = new Dictionary<string, LLVMRef>();
+        private Dictionary<string, LLVMRef> _locals = new();
+        private Dictionary<string, LLVMRef> _params = new();
+        private Dictionary<string, LLVMRef> _globals = new();
 
         private string _moduleName;
         private LLVMModuleRef _LLVMmodule;
         private LLVMBuilderRef _builder;
 
-        private SymbolTableNavigator _currentSymbolTable;
 
         private bool _global = true;
 
-        Dictionary<string, string> _mangledIdentifiers = new Dictionary<string, string>();
+        Dictionary<string, string> _mangledIdentifiers = new();
 
-        Dictionary<string, Action<Node.FunctionCall>> _debugBuiltIns = new Dictionary<string, Action<Node.FunctionCall>>();
+        Dictionary<string, Action<Node.FunctionCall>> _debugBuiltIns = new();
 
 
         readonly Resolving.Module[] _programModules;
@@ -65,17 +64,6 @@ namespace Rhyme.CodeGeneration
             foreach(var module in _programModules)
             {
                 _currentRhymeModule = module;
-                
-                foreach (var ast_tuple in module.ResolvedSyntaxTree)
-                {
-                    _currentSymbolTable = ast_tuple.SymbolTable;
-                    _currentSymbolTable.Reset();
-
-                    Visit((Node)ast_tuple.SyntaxTree);
-                    //Debug.WriteLine(_LLVMmodule.PrintToString());
-                    llvmOutputs.Add((_moduleName, _LLVMmodule.PrintToString()));
-                }
-
             }
 
             return llvmOutputs.ToArray();
@@ -85,294 +73,6 @@ namespace Rhyme.CodeGeneration
         {
             return node.Accept(this);
         }
-
-        #region Pass Visitors
-        public object Visit(Node.Literal literalExpr)
-        {
-            var token = literalExpr.ValueToken;
-            if (token.Type  ==  TokenType.String)
-                return _builder.BuildGlobalStringPtr((string)token.Value);
-
-            switch (token.Type)
-            {
-                case TokenType.String:
-                    return _builder.BuildGlobalStringPtr((string)token.Value);
-
-                case TokenType.Integer:
-                    return LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, Convert.ToUInt64(token.Value));
-
-                case TokenType.True:
-                    return LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, 1);
-                case TokenType.False:
-                    return LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, 0);
-            }
-            return null;
-        }
-
-        public object Visit(Node.Binary binaryExpr)
-        {
-            var lhs = (LLVMValueRef)Visit(binaryExpr.Left);
-            var rhs = (LLVMValueRef)Visit(binaryExpr.Right);
-
-            switch (binaryExpr.Op.Type)
-            {
-                case TokenType.Plus:
-                    return _builder.BuildAdd(lhs, rhs);
-                case TokenType.Minus:
-                    return _builder.BuildSub(lhs, rhs);
-                case TokenType.Asterisk:
-                    return _builder.BuildMul(lhs, rhs);
-
-                case TokenType.EqualEqual:
-                    return _builder.BuildICmp(LLVMIntPredicate.LLVMIntEQ, lhs, rhs);
-                case TokenType.NotEqual:
-                    return _builder.BuildICmp(LLVMIntPredicate.LLVMIntNE, lhs, rhs);
-                    
-            }
-            return null;
-
-        }
-
-        public object Visit(Node.Unary unaryExpr)
-        {
-            throw new NotImplementedException();
-        }
-
-        public object Visit(Node.Block blockExpr)
-        {
-            foreach(var stmt in blockExpr.ExpressionsStatements)
-            {
-                Visit(stmt);
-            }
-
-            return null;
-        }
-        public object Visit(Node.Return returnStmt)
-        {
-            _builder.BuildRet((LLVMValueRef)Visit(returnStmt.RetrunExpression));
-            return null;
-        }
-
-        public object Visit(Node.Get member)
-        {
-            throw new NotImplementedException();
-        }
-
-        public object Visit(Node.Directive directive)
-        {
-            throw new NotImplementedException();
-        }
-
-
-
-        public object Visit(Node.Import importStmt)
-        {
-            foreach (var exp in _programModules.First(m => m.Name == importStmt.Name.Lexeme).Exports.Values)
-            {
-                if (exp.Type is RhymeType.Function func_type)
-                {
-                    DefineMangled(exp.Identifier, $"{importStmt.Name.Lexeme}.{exp.Identifier}");
-                    var func_ref = DeclareFunction(func_type, $"{importStmt.Name.Lexeme}.{exp.Identifier}");
-                    unsafe { LLVM.SetLinkage(func_ref.Value, LLVMLinkage.LLVMExternalLinkage); }
-                    return null;
-                }
-                // TODO: import variables
-            }
-
-            return null;
-        }
-
-        public object Visit(Node.BindingDeclaration bindingDecl)
-        {
-            var identifier = bindingDecl.Declaration.Identifier;
-
-            // Functions
-            if (bindingDecl.Declaration.Type is RhymeType.Function funcType)
-            {
-                throw new NotImplementedException("Local Closures");
-            }
-            
-
-            var llvm_type = LLVMTypeFromRhymeType(bindingDecl.Declaration.Type);
-
-            if (_global)
-            {
-                var global_var = _LLVMmodule.AddGlobal(llvm_type, identifier);
-
-                if (bindingDecl.Expression != null)
-                    global_var.Initializer = (LLVMValueRef)Visit(bindingDecl.Expression);
-
-                return null;
-            }
-
-            _locals.Add(identifier, new LLVMRef(llvm_type, _builder.BuildAlloca(llvm_type, identifier)));
-            
-            _builder.BuildStore((LLVMValueRef)Visit(bindingDecl.Expression), _locals[identifier].Value);
-            return null;
-        }
-
-        public object Visit(Node.If ifStmt)
-        {
-            var condition = (LLVMValueRef)Visit(ifStmt.condition);
-
-            var then_block = _LLVMmodule.LastFunction.AppendBasicBlock("if");
-            var else_block = _LLVMmodule.LastFunction.AppendBasicBlock("else");
-            var end = _LLVMmodule.LastFunction.AppendBasicBlock("end");
-
-            _builder.BuildCondBr(condition, then_block, else_block);
-
-            _builder.PositionAtEnd(then_block);
-            Visit(ifStmt.thenBody);
-
-            if(then_block.Terminator.InstructionOpcode != LLVMOpcode.LLVMRet)
-                _builder.BuildBr(end);
-
-            _builder.PositionAtEnd(else_block);
-            if (ifStmt.elseBody != null)
-            {                
-                Visit(ifStmt.elseBody);
-            }
-
-            if (else_block.Terminator.InstructionOpcode != LLVMOpcode.LLVMRet)
-                _builder.BuildBr(end);
-
-
-            _builder.PositionAtEnd(end);
-            return condition;
-        }
-
-        public object Visit(Node.While whileStmt)
-        {
-            var cond_block = _LLVMmodule.LastFunction.AppendBasicBlock("cond_block");
-            var loop_block = _LLVMmodule.LastFunction.AppendBasicBlock("loop");
-            var end = _LLVMmodule.LastFunction.AppendBasicBlock("break");
-
-            _builder.BuildBr(cond_block);
-
-            // Condition Block
-            _builder.PositionAtEnd(cond_block);
-            var condition = (LLVMValueRef)Visit(whileStmt.Condition);
-            _builder.BuildCondBr(condition, loop_block, end);
-
-            // Loop Block
-            _builder.PositionAtEnd(loop_block);
-            Visit(whileStmt.LoopBody);
-            _builder.BuildBr(cond_block);
-
-            // Exit
-            _builder.PositionAtEnd(end);
-            return condition;
-        }
-        public object Visit(Node.Assignment assignment)
-        {
-            return _builder.BuildStore(
-                (LLVMValueRef)Visit(assignment.Expression),
-                GetNamed(((Node.Binding)assignment.Assignee).Identifier.Lexeme).Value
-            );
-        }
-
-
-        public object Visit(Node.FunctionCall callExpr)
-        {
-            if(callExpr.Callee is Node.Binding binding)
-            {
-                var func_name = binding.Identifier.Lexeme;
-
-                if (_debugBuiltIns.ContainsKey(func_name)){
-                    _debugBuiltIns[func_name](callExpr);
-                    return null;
-                }
-
-                LLVMValueRef func_value_ref = (LLVMValueRef)Visit((Node)binding);
-                return _builder.BuildCall2(_globals[GetMangle(func_name)].Type, _globals[GetMangle(func_name)].Value, callExpr.Args.Select(arg => (LLVMValueRef)Visit(arg)).ToArray());
-            }
-            return null;
-        }
-
-        public object Visit(Node.Binding binding)
-        {
-            return GetNamed(GetMangle(binding.Identifier.Lexeme)).Value;
-        }
-
-        public object Visit(Node.Grouping grouping)
-        {
-            Visit(grouping.Expression);
-            return null;
-        }
-
-        public object Visit(Node.TopLevelDeclaration topLevelDeclaration)
-        {
-            switch (topLevelDeclaration.declarationNode)
-            {
-                case Node.BindingDeclaration bindDecl:
-                    {
-                        var identifier = bindDecl.Declaration.Identifier;
-
-                        // Functions
-                        if (bindDecl.Declaration.Type is RhymeType.Function funcType)
-                        {
-                            DefineMangled(identifier, topLevelDeclaration.Modifier == DeclarationAccessModifier.Global ? $"{_currentRhymeModule.Name}.{identifier}" : identifier);
-
-                            var func = DefineFunction(GetMangle(identifier), funcType, (Node.Block)bindDecl.Expression);
-
-                            if(topLevelDeclaration.Modifier == DeclarationAccessModifier.Global)
-                            {
-                                unsafe { LLVM.SetLinkage(func.Value, LLVMLinkage.LLVMExternalLinkage); }
-                            }
-
-                            if (identifier == "main")
-                            {
-                                unsafe { LLVM.SetLinkage(func.Value, LLVMLinkage.LLVMExternalLinkage); }
-                            }
-
-                            return null;
-                        }
-                    }
-                    break;
-            }
-            //Visit(topLevelDeclaration.declarationNode);
-            return null;
-        }
-
-        public object Visit(Node.CompilationUnit compilationUnit)
-        {
-            _moduleName = $"{_currentRhymeModule.Name}__{Path.GetFileNameWithoutExtension(compilationUnit.SourceFile)}";
-            _LLVMmodule = LLVMModuleRef.CreateWithName(_moduleName);
-            _builder = _LLVMmodule.Context.CreateBuilder();
-
-            _globals.Clear();
-            _mangledIdentifiers.Clear();
-
-            DefineBuiltIns();
-            _debugBuiltIns.Clear();
-            RhymeDebugBuiltIns();
-
-
-            foreach (var exp in _currentRhymeModule.Exports)
-            {
-                var identifier = exp.Value.Identifier;
-                var mangled = DefineMangled(identifier, $"{_currentRhymeModule.Name}.{identifier}");
-                DeclareFunction((RhymeType.Function)exp.Value.Type, mangled);
-            }
-
-
-            foreach (var unit in compilationUnit.Units)
-            {
-                // Note: They are globals!
-                _global = true;
-                Visit(unit);
-            }
-
-            var ll_code = _LLVMmodule.PrintToString();
-            //Debug.WriteLine(ll_code);
-            //_LLVMmodule.Verify(LLVMVerifierFailureAction.LLVMPrintMessageAction);
-           
-            return ll_code;
-        }
-
-
-        #endregion
-
 
 
         #region Helpers
@@ -437,7 +137,6 @@ namespace Rhyme.CodeGeneration
 
             _builder.PositionAtEnd(func.Value.AppendBasicBlock("entry"));
 
-            _currentSymbolTable.NextScope();
             _locals.Clear();
             _params.Clear();
 

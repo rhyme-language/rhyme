@@ -5,12 +5,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
-
+using ClangSharp;
+using LLVMSharp;
 using Rhyme.Scanner;
 using Rhyme.TypeSystem;
 
-namespace Rhyme.Parsing
-{
+namespace Rhyme.Parsing 
+{ 
+
     /// <summary>
     /// Parser compiler pass: <br/>
     /// - Parses the source code given its <see cref="Token"/>s. <br/>
@@ -23,26 +25,45 @@ namespace Rhyme.Parsing
         LinkedList<Token> _tokens;
         LinkedListNode<Token> _current;
 
-        List<PassError> _errors = new List<PassError>();
+        List<PassError> _errors = new();
         string _filePath;
 
+        
         public bool HadError { get; private set; }
-        public IReadOnlyCollection<PassError> Errors { get; }
-
-        public Parser(IEnumerable<Token> Tokens, string filePath)
+        public IReadOnlyCollection<PassError> Errors { get; private set; }
+        
+        public Parser(string filePath)
         {
-            _tokens = new LinkedList<Token>(Tokens);
-            _current = _tokens.First;
-            Errors = _errors;
             _filePath = filePath;
+            Errors = _errors;
         }
 
         public Node.CompilationUnit Parse()
         {
+            var lexer = new Lexer(_filePath);
+            var tokens = lexer.Scan();
+
+            if (lexer.HadError)
+            {
+                Errors = lexer.Errors;
+                return null;
+            }
+
+            _tokens = new LinkedList<Token>(tokens);
+            _current = _tokens.First;
+
             return CompilationUnit();
         }
 
         #region Helpers
+
+        bool TryParse(Func<Node> rule)
+        {
+            if (rule() == null)
+                return false;
+
+            return true;
+        }
         private void Advance()
         {
             _current = _current.Next;
@@ -64,6 +85,32 @@ namespace Rhyme.Parsing
             return false;
         }
 
+        private bool PeekOr(params TokenType[] types)
+        {
+            foreach (TokenType t in types)
+            {
+                if (!AtEnd() && _current.Value.Type == t)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private bool PeekAll(params TokenType[] types)
+        {
+            var revert = _current;
+            foreach (TokenType t in types)
+            {
+                if (!Match(t))
+                {
+                    _current = revert;
+                    return false;
+                }
+            }
+            _current = revert;
+            return true;
+        }
         private Token Consume(TokenType type, string errorMessage)
         {
             if (!AtEnd())
@@ -85,7 +132,8 @@ namespace Rhyme.Parsing
         #region Statements
         private Node.CompilationUnit CompilationUnit()
         {
-            var units = new List<Node>();
+            var tlDecls = new List<Node.TopLevelDeclaration>();
+            var imports = new List<Node.ImportStmt>();
 
             if (!Match(TokenType.Module))
             {
@@ -98,18 +146,18 @@ namespace Rhyme.Parsing
 
             while (Match(TokenType.Import))
             {
-                units.Add(Import());
+                imports.Add(Import());
             }
 
             do
-            {    
-                units.Add(TopLevelDeclaration());
+            {
+                tlDecls.Add(TopLevelDeclaration());
             } while (!AtEnd());
 
-            return new Node.CompilationUnit(module_identifier.Lexeme, _filePath, units);
+            return new Node.CompilationUnit(new Node.ModuleDecl(module_identifier), imports, tlDecls);
         }
 
-        private Node TopLevelDeclaration()
+        private Node.TopLevelDeclaration TopLevelDeclaration()
         {
             bool _extern = Match(TokenType.Extern);
             bool _global = Match(TokenType.Global);
@@ -122,159 +170,136 @@ namespace Rhyme.Parsing
             if (_global)
                 modifier = DeclarationAccessModifier.Global;
 
-            return new Node.TopLevelDeclaration(BindingDeclaration(), modifier);
-        }
-        private RhymeType Type()
-        {
-            RhymeType returnType = RhymeType.NoneType;
-            var current = _current;
+            var revert = _current;
+            var type = Type();
 
-            var token = _current.Value;
 
-            switch (token.Type)
+            if (Match(TokenType.Identifier))
             {
-                case TokenType.Identifier:
-                case TokenType.Void:
-                case TokenType.Var:
-                case TokenType.I8:
-                case TokenType.I16:
-                case TokenType.I32:
-                case TokenType.I64:
-                case TokenType.U8:
-                case TokenType.U16:
-                case TokenType.U32:
-                case TokenType.U64:
-                case TokenType.F32:
-                case TokenType.F64:
-                case TokenType.Str:
-                case TokenType.Bol:
-                    Advance();
-
-                    returnType = RhymeType.FromToken(token);
-                    break;
-            }
-
-            if (Match(TokenType.LeftParen)) // Function
-            {
-
-                var arguments = new List<Declaration>();
-                if (_current.Value.Type != TokenType.RightParen)
+                if (Match(TokenType.OpenParen))
                 {
-                    do
-                    {
-                        var decl = Declaration();
-
-                        if (decl == null)
-                        {
-                            _current = current;
-                            return RhymeType.NoneType;
-                        }
-
-                        arguments.Add(decl);
-                    } while (Match(TokenType.Comma));
+                    _current = revert;
+                    return new Node.TopLevelDeclaration(FunctionDeclaration(), modifier);
                 }
-
-                Consume(TokenType.RightParen, "Expect ')' after arguments.");
-
-                return new RhymeType.Function(returnType, arguments.ToArray());
-
             }
 
-            return returnType;
+            _current = revert;
+            var bindDecl = BindingDeclaration();
+            Consume(TokenType.Semicolon, "';' expected");
+            return new Node.TopLevelDeclaration(bindDecl, modifier);
         }
 
-        private Node UsingStatement()
-        {
-            throw new NotImplementedException();
+        private Node.FunctionDeclaration FunctionDeclaration(){
+            var ret_type = Type();
+            var identifier = Consume(TokenType.Identifier, "Expects a function name");
+            Consume(TokenType.OpenParen, "'(' Expected");
+            var parameters = Parameters();
+            Consume(TokenType.CloseParen, "')' expected after arguments.");
+            var block = Block();
+            return new Node.FunctionDeclaration(ret_type, identifier, parameters, block);
         }
 
-        private Node BindingDeclaration()
-        {
-            Declaration decl = Declaration();
 
-            if (decl == null)
+        private Node.Type Type()
+        {
+            if (Match(TokenType.Fn)) // Function Type
+            {
+                return FuncType();
+            }
+
+            return new Node.IdentifierType(Consume(TokenType.Identifier, "Expects an identifier for type"));
+        }
+
+        private Node.FuncType FuncType()
+        {
+            var retType = Type();
+            Consume(TokenType.OpenParen, "'(' Expected");
+            var parameters = Parameters();
+            Consume(TokenType.CloseParen, "')' expected after arguments.");
+
+            return new Node.FuncType(retType, parameters); 
+        }
+        private Node.ParamDecl[] Parameters()
+        {
+            List<Node.ParamDecl> parameters = new();
+            
+            if (!Match(TokenType.CloseParen))
+            {
+                do
+                {
+                    var param = ParamDecl();
+                    parameters.Add(param);
+                } while (Match(TokenType.Comma));
+            }
+            return parameters.ToArray();
+        }
+        private Node.ParamDecl ParamDecl()
+        {
+            var type = Type();
+            
+            var identifier = Consume(TokenType.Identifier, "Expects a parameter name");
+
+            if (type == null || identifier == null)
                 return null;
+
+            return new Node.ParamDecl(type, identifier);
+        }
+
+        private Node.BindingDeclaration BindingDeclaration()
+        {
+            var type = Type();
+
+            /*TODO: multiple declarators*/
+            var declarator = Declarator();
 
             Node expr = null;
             if (Match(TokenType.Equal))
             {
                 expr = Expression();
             }
-            Consume(TokenType.Semicolon, "Expects a ';' after a binding value");
-            return new Node.BindingDeclaration(decl, expr);
+
+
+            return new Node.BindingDeclaration(type, declarator);
         }
 
-        private Node Import()
+        Node.Declarator Declarator()
+        {
+            var identifier = Consume(TokenType.Identifier, "Expects a declarator identifier");
+
+            Node expression = null;
+            if (Match(TokenType.Equal))
+            {
+                expression = Expression();
+            }
+
+            return new Node.Declarator(identifier, expression);
+        }
+        private Node.ImportStmt Import()
         {
             var module = Consume(TokenType.Identifier, "Expects a module name");
             Consume(TokenType.Semicolon, "';' Expected");
-            return new Node.Import(module);
-        }
-
-        private Declaration Declaration()
-        {
-            
-            var current = _current;
-            
-            RhymeType type = Type();
-
-            if (type == RhymeType.NoneType)
-            {
-                _current = current;
-                return null;
-            }
-
-            Token identifierToken = null;
-
-            if (type is RhymeType.Function)
-            {
-                if (((RhymeType.Function)type).Parameters.Length == 0)
-                {
-                    if (Match(TokenType.Identifier))
-                    {
-                        identifierToken = _current.Previous.Value;
-                        return new Declaration(type, identifierToken.Lexeme);
-                    }
-
-                    if (Match(TokenType.Semicolon))
-                    {
-                        // Normal function call, rollback!
-                        _current = current;
-                        return null;
-                    }
-                }
-            }
-
-            if (Match(TokenType.RightParen))
-            {
-                // Normal function call, rollback!
-                _current = current;
-                return null;
-            }
-
-            if(_current.Value.Type != TokenType.Identifier)
-            {
-                // Normal argument call, rollback!
-                _current = current;
-                return null;
-            }
-
-            return new Declaration(type, Consume(TokenType.Identifier, "Expects a binding name.").Lexeme);
-             
+            return new Node.ImportStmt(module);
         }
 
         private Node Statement()
         {
+            Node node = null;
 
-            var node = BindingDeclaration();
-
-            if (node != null)
-                return node;
-
-            if (Match(TokenType.Return))
-                node = Return();
-            else
+            if(PeekAll(TokenType.Identifier, TokenType.Equal))
+            {
                 node = Assignment();
+                Consume(TokenType.Semicolon, "';' Expected");
+                return node;
+            }
+
+            if (PeekAll(TokenType.Return))
+            {
+                node =  Return();
+                Consume(TokenType.Semicolon, "';' Expected");
+                return node;
+            }
+
+            node = BindingDeclaration();
 
             Consume(TokenType.Semicolon, "';' Expected");
             return node;
@@ -328,17 +353,17 @@ namespace Rhyme.Parsing
         private Node Directive()
         {
             var identifer = Consume(TokenType.Identifier, "Expects a directive name");
-            Consume(TokenType.LeftParen, "'(' Expected");
+            Consume(TokenType.OpenParen, "'(' Expected");
 
-            List<Node> args = new List<Node>();
-            if (_current.Value.Type != TokenType.RightParen)
+            List<Node> args = new();
+            if (_current.Value.Type != TokenType.CloseParen)
             {
                 do
                 {
                     args.Add(Expression());
                 } while (Match(TokenType.Comma));
             }
-            Consume(TokenType.RightParen, "Expect ')' after arguments.");
+            Consume(TokenType.CloseParen, "Expect ')' after arguments.");
             return new Node.Directive(identifer, args.ToArray());
         }
         private Node Assignment()
@@ -426,17 +451,17 @@ namespace Rhyme.Parsing
         {
             var callee = Get();
 
-            if (Match(TokenType.LeftParen))
+            if (Match(TokenType.OpenParen))
             {
-                List<Node> args = new List<Node>();
-                if (_current.Value.Type != TokenType.RightParen)
+                List<Node> args = new();
+                if (_current.Value.Type != TokenType.CloseParen)
                 {
                     do
                     {
                         args.Add(Expression());
                     } while (Match(TokenType.Comma));
                 }
-                Consume(TokenType.RightParen, "Expect ')' after arguments.");
+                Consume(TokenType.CloseParen, "Expect ')' after arguments.");
                 return new Node.FunctionCall(callee, args.ToArray());
             }
             return callee;
@@ -459,7 +484,7 @@ namespace Rhyme.Parsing
                 return new Node.Literal(_current.Previous.Value);
 
             // Statement-like
-            if (Match(TokenType.LeftCurly))
+            if (Match(TokenType.OpenCurly))
                 return Block();
 
             if (Match(TokenType.If))
@@ -477,14 +502,15 @@ namespace Rhyme.Parsing
             return node;
         }
 
-        private Node Block()
+        private Node.Block Block()
         {
-
+            Consume(TokenType.OpenCurly, "'{' expected");
             var statements = new List<Node>();
-            while (!Match(TokenType.RightCurly))
+            while (_current.Value.Type !=  TokenType.CloseCurly)
             {
                 statements.Add(Statement());
             }
+            Consume(TokenType.CloseCurly, "'}' expected");
             return new Node.Block(statements);
         }
 
@@ -492,6 +518,7 @@ namespace Rhyme.Parsing
 
         void Error(Position at,  string message)
         {
+
             Console.WriteLine(message);
             HadError = true;
             _errors.Add(new PassError(_filePath,at, message));

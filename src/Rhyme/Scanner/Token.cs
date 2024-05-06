@@ -10,7 +10,7 @@ namespace Rhyme.Scanner
     {
 
         SingleQuote, DoubleQuote,
-        LeftParen, RightParen, LeftCurly, RightCurly,
+        OpenParen, CloseParen, OpenCurly, CloseCurly,
         Comma, Colon, Semicolon, BackTick, Dot,
 
         Hash, Caret, Ampersand, Percent, Dollar,
@@ -23,15 +23,13 @@ namespace Rhyme.Scanner
         GreaterThan, SmallerThan, GreaterEqual, SmallerEqual,
 
         // Keywords
-        If, Else, For, While, Using, Var, Return,
-        Extern, Global, Const,
+        If, Else, For, While, Using, Return,
+        Extern, Global, Const, Fn,
         Module, Import,
 
         // Literals
         True, False, Null, Integer, Float, String,
-        // Types
-        Void,
-        U8, U16, U32, U64, I8, I16, I32, I64, F32, F64, Str, Bol,
+
         None,
     }
 

@@ -22,12 +22,12 @@ namespace Rhyme.Resolving
     }
     public class Scope
     {
-        Dictionary<string, RhymeType> _symbols = new Dictionary<string, RhymeType>();
+        List<string> _symbols = new ();
 
         public Scope Enclosing { get; private set; }
 
         public bool Contains(string token) {
-            if (_symbols.ContainsKey(token))
+            if (_symbols.Contains(token))
                 return true;
 
             if (Enclosing != null) 
@@ -37,27 +37,29 @@ namespace Rhyme.Resolving
         }
 
 
-        RhymeType get(string token)
+        string get(string token)
         {
-            if (_symbols.ContainsKey(token))
-                return _symbols[token];
+            if (_symbols.Contains(token))
+            {
+                return _symbols.Find(s => s == token);
+            }
 
             if (Enclosing != null) 
                 return Enclosing.get(token);
                 
-            return RhymeType.NoneType;
+            return null;
            
         }
         public Scope(Scope enclosingScope = null) { Enclosing = enclosingScope; }
 
-        public ResolutionResult Define(string token, RhymeType type)
+        public ResolutionResult Define(string token)
         {
-            if (Enclosing != null && Enclosing.get(token) != RhymeType.NoneType)
+            if (Enclosing != null && Enclosing.get(token) != null)
                 return ResolutionResult.Shadowed;
 
-            if (!_symbols.ContainsKey(token))
+            if (!_symbols.Contains(token))
             {
-                _symbols.Add(token, type);
+                _symbols.Add(token);
                 return ResolutionResult.Defined;
             }
 
@@ -67,10 +69,9 @@ namespace Rhyme.Resolving
         }
 
 
-        public RhymeType this[string identifier]
+        public string this[string identifier]
         {
             get { return get(identifier); }
-            set { _symbols[identifier] =  value; }
         }
 
     }
@@ -85,9 +86,9 @@ namespace Rhyme.Resolving
     }
     public class SymbolTable
     {
-        Scope _current = new Scope();
+        Scope _current = new();
 
-        List<Scope> _scopes = new List<Scope>();
+        List<Scope> _scopes = new();
 
 
 
@@ -110,53 +111,14 @@ namespace Rhyme.Resolving
 
 
 
-        public ResolutionResult Define(Declaration declaration)
+        public ResolutionResult Define(string identifer)
         {
-            return _current.Define(declaration.Identifier, declaration.Type);
+            return _current.Define(identifer);
         }
 
         public bool Contains(string identifier)
         {
             return _current.Contains(identifier);
-        }
-
-        public SymbolTableNavigator GetNavigator()
-        {
-            return new SymbolTableNavigator(_scopes.ToArray());
-        }
-    }
-
-
-    public class SymbolTableNavigator
-    {
-
-        Scope[] _scopes;
-        int _index = 0;
-
-        public SymbolTableNavigator(Scope[] scopes)
-        {
-            _scopes = scopes;  
-        }
-
-        public void NextScope()
-        {
-            _index++;
-        }
-
-        public void PreviousScope()
-        {
-            _index--;
-        }
-
-        public void Reset()
-        {
-            _index = 0;
-        }
-
-        public RhymeType this[string identifier]
-        {
-            get => _scopes[_index][identifier];
-            set => _scopes[_index][identifier] = value;
         }
     }
 
