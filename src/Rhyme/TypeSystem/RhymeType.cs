@@ -83,7 +83,6 @@ namespace Rhyme.TypeSystem
             private NumericKind _kind;
             public Numeric(string name, NumericKind kind) : base(name) { _kind = kind; }
         }
-        public static readonly RhymeType NoneType = new Primitive("<none>");
 
         public static readonly RhymeType Void = new Primitive("void");
 
