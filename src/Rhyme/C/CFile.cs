@@ -10,6 +10,12 @@ namespace Rhyme.C
 {
     internal class CFile 
     {
+        public abstract record Declaration
+        {
+            public record Variable(string Type, string Name) : Declaration;
+            public record Function(string Name, string ReturnType, params Variable[] Parameters) : Declaration;
+        };
+
         string _filePath;
         public CFile(string filePath)
         {
@@ -48,7 +54,7 @@ namespace Rhyme.C
         {
             var name = cursor.Spelling.ToString();
 
-            List<Declaration> parameters = new();
+            List<Declaration.Variable> parameters = new();
             unsafe
             {
                 // Parameters
@@ -57,11 +63,11 @@ namespace Rhyme.C
                     if (cursor.kind != CXCursorKind.CXCursor_ParmDecl)
                         return CXChildVisitResult.CXChildVisit_Continue;
 
-                    parameters.Add(GetDeclarationFromCursor(cursor));
+                    parameters.Add((Declaration.Variable)GetDeclarationFromCursor(cursor));
                     return CXChildVisitResult.CXChildVisit_Recurse;
                 }, default);
             }
-            return Declaration.CreateFunction(name, RhymeTypeFromCursorType(cursor.ReturnType), parameters.ToArray());
+            return new Declaration.Function(name, cursor.ReturnType.Spelling.ToString(), parameters.ToArray());
         }
 
         Declaration GetDeclarationFromCursor(CXCursor cursor)
@@ -73,9 +79,8 @@ namespace Rhyme.C
                 case CXCursorKind.CXCursor_FunctionDecl:
                     return GetFunctionFromCursor(cursor);
                 case CXCursorKind.CXCursor_ParmDecl:
-                    return new Declaration(RhymeTypeFromCursorType(cursor.Type), name);
                 case CXCursorKind.CXCursor_VarDecl:
-                    return new Declaration(RhymeTypeFromCursorType(cursor.Type), name);
+                    return new Declaration.Variable(cursor.Type.Spelling.ToString(), name);
                 default:
                     return null;
             }
@@ -87,8 +92,6 @@ namespace Rhyme.C
             {
                 case "int":
                     return RhymeType.I32;
-                case "void":
-                    return RhymeType.Void;
                 default:
                     return RhymeType.NoneType;
             }

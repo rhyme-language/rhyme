@@ -6,23 +6,26 @@ using System.Threading.Tasks;
 
 using Rhyme.Scanner;
 using Rhyme.Parsing;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Rhyme.TypeSystem
 {
     public abstract class RhymeType
     {
+        public abstract RhymeType ApplyOperator(RhymeType rhs, Token operatorToken);
+
         public class Function : RhymeType
         {
             public readonly RhymeType ReturnType;
-            public readonly Declaration[] Parameters;
+            public readonly RhymeType[] Parameters;
 
-            public Function(RhymeType returnType, params Declaration[] parameters)
+            public Function(RhymeType returnType, params RhymeType[] parameters)
             {
                 ReturnType = returnType;
                 Parameters = parameters;
             }
 
-            public override string ToString() => $"{ReturnType}({string.Join(',', Parameters.Select(p => p.Type))})";
+            public override string ToString() => $"{ReturnType}({string.Join(',', Parameters.Select(p => p.ToString()))})";
 
             public static bool operator ==(Function lhs, Function rhs) => lhs.Equals(rhs);
 
@@ -35,20 +38,14 @@ namespace Rhyme.TypeSystem
 
                 return ReturnType == ((Function)obj).ReturnType && Parameters.SequenceEqual(((Function)obj).Parameters);
             }
-        }
 
-        public class Namespace : RhymeType {}
-        public class Primitive : RhymeType
-        {
-            private readonly string _name;
-
-            public Primitive(string name)
+            public override RhymeType ApplyOperator(RhymeType rhs, Token operatorToken)
             {
-                _name = name;
+                throw new NotImplementedException();
             }
-
-            public override string ToString() => _name;
         }
+
+
 
         public class Reference : RhymeType
         {
@@ -58,56 +55,81 @@ namespace Rhyme.TypeSystem
             {
                 Name = name;
             }
+
+            public override RhymeType ApplyOperator(RhymeType rhs, Token operatorToken)
+            {
+                throw new NotImplementedException();
+            }
+
             public override string ToString() => Name;
-
         }
-        public class Numeric : Primitive
-        {
 
+        public class Numeric : RhymeType
+        {
             public enum NumericKind
             {
                 U8, U16, U32, U64, I8, I16, I32, I64, F32, F64,
             }
-            public static bool operator >(Numeric rhs, Numeric lhs)
+
+            public NumericKind Kind { get; set; }
+
+            public Numeric(NumericKind kind)
             {
-                return rhs._kind > lhs._kind;
+                Kind = kind;
             }
 
-            public static bool operator <(Numeric rhs, Numeric lhs)
+            static Numeric Max(Numeric lhs, Numeric rhs) => rhs.Kind > lhs.Kind ? rhs : lhs;
+
+            public override RhymeType ApplyOperator(RhymeType rhs, Token operatorToken)
             {
-                return lhs._kind < rhs._kind;
+                switch(operatorToken.Type) {
+                    case TokenType.Plus:
+                    case TokenType.Minus:
+                    case TokenType.Asterisk:
+                    case TokenType.Percent:
+                    case TokenType.Slash:
+                        {
+                            if (rhs is Numeric numRhs)
+                                return Max(this, numRhs);
+                            else
+                                return NoneType;
+                        }
+
+                    default:
+                        return NoneType;
+                }
             }
 
-            public static Numeric Max(Numeric lhs, Numeric rhs) => rhs._kind > lhs._kind ? rhs : lhs;
+            public override string ToString() => Kind.ToString();
+            public override bool Equals(object obj)
+            {
+                if (obj is Numeric)
+                    return true;
 
-            private NumericKind _kind;
-            public Numeric(string name, NumericKind kind) : base(name) { _kind = kind; }
+                return false;
+            }
         }
 
-        public static readonly RhymeType Void = new Primitive("void");
+        public static readonly RhymeType U8 = new Numeric(Numeric.NumericKind.U8);
+        public static readonly RhymeType U16 = new Numeric(Numeric.NumericKind.U16);
+        public static readonly RhymeType U32 = new Numeric(Numeric.NumericKind.U32);
+        public static readonly RhymeType U64 = new Numeric(Numeric.NumericKind.U64);
+        public static readonly RhymeType I8 = new Numeric(Numeric.NumericKind.I8);
+        public static readonly RhymeType I16 = new Numeric(Numeric.NumericKind.I16);
+        public static readonly RhymeType I32 = new Numeric(Numeric.NumericKind.I32);
+        public static readonly RhymeType I64 = new Numeric(Numeric.NumericKind.I64);
+        public static readonly RhymeType F32 = new Numeric(Numeric.NumericKind.F32);
 
-        public static readonly RhymeType U8 = new Numeric("u8", Numeric.NumericKind.U8);
-        public static readonly RhymeType U16 = new Numeric("u16", Numeric.NumericKind.U16);
-        public static readonly RhymeType U32 = new Numeric("u32", Numeric.NumericKind.U32);
-        public static readonly RhymeType U64 = new Numeric("u64", Numeric.NumericKind.U64);
-        public static readonly RhymeType I8 = new Numeric("i8", Numeric.NumericKind.I8);
-        public static readonly RhymeType I16 = new Numeric("i16", Numeric.NumericKind.I16);
-        public static readonly RhymeType I32 = new Numeric("i32", Numeric.NumericKind.I32);
-        public static readonly RhymeType I64 = new Numeric("i64", Numeric.NumericKind.I64);
-        public static readonly RhymeType F32 = new Numeric("f32", Numeric.NumericKind.F32);
-        public static readonly RhymeType F64 = new Numeric("f64", Numeric.NumericKind.F64);
-
-        public static readonly RhymeType Str = new Primitive("str");
-        public static readonly RhymeType Bol = new Primitive("bol");
-
-
+        public static readonly RhymeType NoneType = new Reference("<none>");
 
         public static RhymeType FromToken(Token token)
         {
-            switch (token.Type)
+            switch (token.Lexeme)
             {
-                /*TODO*/
-                case TokenType.Identifier: return new Reference(token.Lexeme);
+                case "i8": return I8;
+                case "i16": return I16;
+                case "i32": return I32;
+                case "i64": return I64;
                 default: return NoneType;
             };
         }

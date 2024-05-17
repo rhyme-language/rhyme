@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
+using ClangSharp;
 using Rhyme.C;
 using Rhyme.Parsing;
 using Rhyme.Scanner;
@@ -13,7 +14,6 @@ using Rhyme.TypeSystem;
 
 namespace Rhyme.Resolving
 {
-    public record Function(string Name, RhymeType.Function Type, Declaration[] Locals);
 
     public record Module(
         string Name,
@@ -126,6 +126,18 @@ namespace Rhyme.Resolving
         #endregion
 
         #region Declarations
+        public object Visit(Node.Directive directive)
+        {
+            if (_unit.DirectedTree.ContainsKey(directive))
+            {
+                foreach(var node in _unit.DirectedTree[directive])
+                {
+                    Visit(node);
+                }
+            }
+
+            return null;
+        }
         public object Visit(Node.BindingDeclaration bindDecl)
         {
             foreach (var declarator in bindDecl.Declarators)
@@ -139,6 +151,25 @@ namespace Rhyme.Resolving
 
             return null;
         }
+
+        public object Visit(Node.FunctionDeclaration funcDecl)
+        {
+            Define(funcDecl.Identifier);
+
+            _symbolTable.StartScope();
+            foreach (var param in funcDecl.Parameters)
+            {
+                Define(param.Identifier);
+            }
+           
+            if(funcDecl.Block != null)
+            {
+                Visit(funcDecl.Block);
+            }
+
+            _symbolTable.EndScope();
+            return null;
+        }
         public object Visit(Node.TopLevelDeclaration topLevelDecl)
         {
             if (topLevelDecl.Modifier == DeclarationAccessModifier.Global)
@@ -149,17 +180,12 @@ namespace Rhyme.Resolving
             if (topLevelDecl.DeclarationNode is Node.BindingDeclaration bindDecl)
             {
                 Visit(bindDecl);
+                return null;
             }
 
-            // Function Declarations
-            if (topLevelDecl.DeclarationNode is Node.FunctionDeclaration funcDecl)
-            {
-                Define(funcDecl.Identifier);
 
-                _symbolTable.StartScope();
-                Visit(funcDecl.Block);
-                _symbolTable.EndScope();
-            }
+            Visit(topLevelDecl.DeclarationNode);
+            
 
             return null;
         }

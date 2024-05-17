@@ -24,7 +24,8 @@ namespace Rhyme.Modularizing
             _errors.Add(new PassError(filePath, position, message));
         }
         public record ModulesInfo(
-            IReadOnlyDictionary<string, IReadOnlyCollection<Node>> Exports
+            IReadOnlyDictionary<string, IReadOnlyCollection<Node>> Exports,
+            IReadOnlyDictionary<CompilationUnit, IReadOnlyCollection<string>> ImportdModues
         );
 
         public ModulesInfo Modularize()
@@ -32,9 +33,12 @@ namespace Rhyme.Modularizing
             Dictionary<string, HashSet<Node>>  moduleExports = new();
             Dictionary<string, HashSet<string>>  moduleExportSymbols = new();
 
+            Dictionary<CompilationUnit, HashSet<string>> importedModules = new();
+
             foreach (var unit in _units)
             {
                 var tree = unit.SyntaxTree;
+
 
                 var moduleName = tree.ModuleDeclaration.Identifier.Lexeme;
                 if (!moduleExports.ContainsKey(moduleName))
@@ -61,7 +65,7 @@ namespace Rhyme.Modularizing
                     }
                 }
 
-                HashSet<string> importedModules = new();
+                HashSet<string> imported = new();
 
                 foreach(var import in tree.ImportStatements)
                 {
@@ -70,7 +74,7 @@ namespace Rhyme.Modularizing
                     {
                         Error(unit.FilePath, import.Position, $"Importing the current module is impossible");
                     }
-                    else if(!importedModules.Add(importName)) 
+                    else if(!imported.Add(importName)) 
                     {
                         Error(unit.FilePath, import.Position, $"'{importName}' is already imported");
                     }else if (!moduleExports.ContainsKey(importName))
@@ -80,9 +84,10 @@ namespace Rhyme.Modularizing
                 }
 
 
+                importedModules[unit] = imported;
             }
             var exports = moduleExports.ToDictionary(k => k.Key, p => (IReadOnlyCollection<Node>)p.Value).AsReadOnly();
-            return new ModulesInfo(exports);
+            return new ModulesInfo(exports, importedModules.ToDictionary(k => k.Key, p => (IReadOnlyCollection<string>)p.Value).AsReadOnly());
         }
     }
 }

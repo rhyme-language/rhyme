@@ -10,14 +10,12 @@ using Rhyme.TypeSystem;
 
 namespace Rhyme.Parsing
 {
+    /*TODO: REMOVE ASAP*/
     public record Declaration(RhymeType Type, string Identifier)
     {
         public static Declaration CreateFunction(string identifier, RhymeType returnType, params Declaration[] parameters)
         {
-            return new Declaration(
-                new RhymeType.Function(returnType, parameters),
-                identifier
-            );
+            return null;
         }
     };
 
@@ -51,6 +49,7 @@ namespace Rhyme.Parsing
             T Visit(Assignment assignment) => default;
             T Visit(Return returnStmt) => default;
             T Visit(Get member) => default;
+            T Visit(ParamDecl param) => default;
             T Visit(Directive directive) => default;
             T Visit(TopLevelDeclaration topLevelDeclaration) => default;
             T Visit(BindingDeclaration bindingDecl) => default;
@@ -96,9 +95,9 @@ namespace Rhyme.Parsing
 
         }
 
-        public record FunctionCall(Node Callee, params Node[] Args) : Node
+        public record FunctionCall(Node Callee, params Node[] Arguments) : Node
         {
-            public Position Position => new(Callee.Position.Line, Callee.Position.Start, Args.Length > 0 ? Args[^1].Position.End : Callee.Position.End);
+            public Position Position => new(Callee.Position.Line, Callee.Position.Start, Arguments.Length > 0 ? Arguments[^1].Position.End : Callee.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
         public record Binding(Token Identifier) : Node
@@ -142,7 +141,7 @@ namespace Rhyme.Parsing
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record Directive(Token Identifier, params Node[] Arguments) : Node
+        public record Directive(Token Identifier, params Node[] Arguments) :  Node
         {
             public Position Position => Identifier.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
@@ -162,13 +161,21 @@ namespace Rhyme.Parsing
             public Position Position => DeclarationNode.Position;
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
-        public record BindingDeclaration(Type type, params Declarator[] Declarators) : Node
+        public record BindingDeclaration(Type Type, params Declarator[] Declarators) : Node
         {
-            public Position Position => Position.NonePosition;
+            public Position Position => new Position(Declarators[0].Identifier.Position.Line, Declarators[0].Identifier.Position.Start, Declarators[0].Identifier.Position.End);
             public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
 
         }
-        public record Declarator(Token Identifier, Node Initializer);
+        public record Declarator(Token Identifier, Node Initializer) : Node
+        {
+            public Position Position => new Position(Identifier.Position.Line, Identifier.Position.Start, Initializer.Position.End);
+
+            public T Accept<T>(IVisitor<T> visitor)
+            {
+                throw new NotImplementedException();
+            }
+        }
 
         public record ImportStmt(Token Name) : Node
         {
@@ -195,7 +202,12 @@ namespace Rhyme.Parsing
             public new T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
         }
 
-        public record ParamDecl(Type Type, Token Identifier);
+        public record ParamDecl(Type Type, Token Identifier) : Node
+        {
+            public Position Position => Position.FromTo(Type.Position, Identifier.Position);
+
+            public T Accept<T>(IVisitor<T> visitor) => visitor.Visit(this);
+        };
 
         public record ModuleDecl(Token Identifier) : Node
         {

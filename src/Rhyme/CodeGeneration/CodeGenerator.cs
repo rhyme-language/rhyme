@@ -25,7 +25,20 @@ namespace Rhyme.CodeGeneration
     /// </summary>
     public class CodeGenerator : ICompilerPass, Node.IVisitor<object>
     {
-        record LLVMRef(LLVMTypeRef Type, LLVMValueRef Value);
+        public record LLVMRef(LLVMTypeRef Type, LLVMValueRef Value) {
+            public static implicit operator LLVMTypeRef(LLVMRef @ref) => @ref.Type;
+            public static implicit operator LLVMValueRef(LLVMRef @ref) => @ref.Value;
+            public static LLVMValueRef ToValue(object obj)
+            {
+                if(obj is LLVMValueRef)
+                    return (LLVMValueRef)obj;
+
+                if (obj is LLVMRef @ref)
+                    return @ref.Value;
+
+                throw new Exception("Not a LLVMValueRef/LLVMRef");
+            }
+        }
 
         private List<PassError> _errors = new();
 
@@ -34,7 +47,7 @@ namespace Rhyme.CodeGeneration
         private Dictionary<string, LLVMRef> _globals = new();
 
         private string _moduleName;
-        private LLVMModuleRef _LLVMmodule;
+        private LLVMModuleRef _module;
         private LLVMBuilderRef _builder;
 
 
@@ -44,29 +57,20 @@ namespace Rhyme.CodeGeneration
 
         Dictionary<string, Action<Node.FunctionCall>> _debugBuiltIns = new();
 
-
-        readonly Resolving.Module[] _programModules;
-        Resolving.Module _currentRhymeModule = null;
-
-        public CodeGenerator(Resolving.Module[] modules)
+        CompilationUnit _unit;
+        public CodeGenerator(CompilationUnit unit)
         {
-            _programModules = modules;
+            _unit = unit;
+            Errors = _errors;
         }
 
         public bool HadError { get; private set; }
         public IReadOnlyCollection<PassError> Errors { get; }
 
 
-        public (string moduleName, string llvmCode)[] Generate()
+        public string Generate()
         {
-            var llvmOutputs = new List<(string module, string llvmCode)>();
-
-            foreach(var module in _programModules)
-            {
-                _currentRhymeModule = module;
-            }
-
-            return llvmOutputs.ToArray();
+            return (string)Visit(_unit.SyntaxTree);
         }
         
         object Visit(Node node)
@@ -75,13 +79,120 @@ namespace Rhyme.CodeGeneration
         }
 
 
+        #region Visitors
+        #region Expressions
+        public object Visit(Node.Literal literalExpr)
+        {
+            switch (literalExpr.ValueToken.Type)
+            {
+                case TokenType.Integer:
+                    return LLVMValueRef.CreateConstInt(LLVMTypeRef.Int64, Convert.ToUInt64(literalExpr.ValueToken.Value));
+                default:
+                    throw new NotImplementedException("Literal type not supported");
+            }
+
+        }
+
+        public object Visit(Node.Binding binding)
+        {
+            var bindingName = binding.Identifier.Lexeme;
+
+            return GetNamed(bindingName);
+
+            if (_locals.ContainsKey(bindingName))
+            {
+                var local_ptr = _locals[bindingName];
+                var load = _builder.BuildLoad2(local_ptr.Type, local_ptr.Value, $"l_{bindingName}");
+                return new LLVMRef(load.TypeOf, load);
+
+            }
+
+            throw new NotImplementedException("Binding...");
+        }
+        public object Visit(Node.Binary binaryExpr)
+        {
+            var lhs_type = GetType(binaryExpr.Left);
+            var rhs_type = GetType(binaryExpr.Right);
+
+            var lhs = Visit(binaryExpr.Left);
+            var rhs = Visit(binaryExpr.Right);
+
+            if (lhs_type is RhymeType.Numeric && rhs_type is RhymeType.Numeric)
+            {
+                var lhs_val = LLVMRef.ToValue(lhs);
+                var rhs_val = LLVMRef.ToValue(rhs);
+                switch (binaryExpr.Op.Type)
+                {
+                    case TokenType.Plus:
+                        return _builder.BuildAdd(lhs_val, rhs_val);
+                }
+            }
+
+            throw new NotImplementedException("Binary");
+        }
+
+
+        public object Visit(Node.FunctionCall funcCall)
+        {
+            var func = (LLVMRef)Visit(funcCall.Callee);
+
+            return _builder.BuildCall2(
+                func.Type,
+                func.Value,
+                funcCall.Arguments.Select(arg => LLVMRef.ToValue(Visit(arg))).ToArray()
+            );
+        }
+        #endregion
+
+        #region Statements
+        public object Visit(Node.Return returnStmt)
+        {
+            var retVal = Visit(returnStmt.RetrunExpression);
+            return _builder.BuildRet(LLVMRef.ToValue(retVal));
+        }
+        #endregion
+
+        #region Declarations
+     
+        public object Visit(Node.FunctionDeclaration funcDecl)
+        {
+            return DefineFunction(
+                funcDecl.Identifier.Lexeme, 
+                (RhymeType.Function)_unit.TypedTree[funcDecl],
+                funcDecl.Parameters.Select(p => p.Identifier.Lexeme).ToArray(),
+                funcDecl.Block
+            );
+        }
+        public object Visit(Node.TopLevelDeclaration topLevelDeclaration)
+        {
+            return Visit(topLevelDeclaration.DeclarationNode);
+        }
+        #endregion
+
+        public object Visit(Node.CompilationUnit compilationUnit)
+        {
+            _moduleName = $"{_unit.ModuleName}__{Path.GetFileNameWithoutExtension(_unit.FilePath)}";
+            _module = LLVMModuleRef.CreateWithName(_moduleName);
+            _builder = _module.Context.CreateBuilder();
+
+
+            foreach (var topDecl in compilationUnit.TopLevelDeclarations)
+            {
+                Visit(topDecl);
+            }
+            Debug.WriteLine(_module.ToString());
+            _module.Verify(LLVMVerifierFailureAction.LLVMPrintMessageAction);
+            return _module.ToString();
+        }
+        #endregion
+
         #region Helpers
 
-        LLVMTypeRef LLVMTypeFromRhymeType(RhymeType type)
+        LLVMTypeRef LLVMType(RhymeType type)
         {
             var _rhymeTypeLLVMType = new Dictionary<RhymeType, LLVMTypeRef>()
             {
-                { RhymeType.Void, LLVMTypeRef.Void },
+                //{ RhymeType.Void, LLVMTypeRef.Void },
                 { RhymeType.U8, LLVMTypeRef.Int8 },
                 { RhymeType.U16, LLVMTypeRef.Int16 },
                 { RhymeType.U32, LLVMTypeRef.Int32 },
@@ -89,18 +200,18 @@ namespace Rhyme.CodeGeneration
                 { RhymeType.I16, LLVMTypeRef.Int16 },
                 { RhymeType.I32, LLVMTypeRef.Int32 },
                 { RhymeType.I64, LLVMTypeRef.Int64 },
-                { RhymeType.Bol, LLVMTypeRef.Int1 }, // or int8 for alignment??
+               // { RhymeType.Bol, LLVMTypeRef.Int1 }, // or int8 for alignment??
             };
 
             if(type is RhymeType.Function funcType)
             {
                 return LLVMTypeRef.CreateFunction(
-                    LLVMTypeFromRhymeType(funcType.ReturnType),
-                    funcType.Parameters.Select(p => LLVMTypeFromRhymeType(p.Type)).ToArray()
+                    LLVMType(funcType.ReturnType),
+                    funcType.Parameters.Select(p => LLVMType(p)).ToArray()
                 );
             }
 
-            if(type is RhymeType.Primitive)
+            if(type is RhymeType.Numeric)
                 return _rhymeTypeLLVMType[type];
 
             return null;
@@ -114,25 +225,27 @@ namespace Rhyme.CodeGeneration
 
         LLVMRef DeclareFunction(RhymeType.Function functionDeclaration, string name)
         {
-            var type = LLVMTypeFromRhymeType(functionDeclaration);
-            var value = _LLVMmodule.AddFunction(name, type);
+            var type = LLVMType(functionDeclaration);
+            var value = _module.AddFunction(name, type);
 
             _globals.Add(name, new LLVMRef(type, value));
 
             return new LLVMRef(type, value);
         }
-        LLVMRef DefineFunction(string name, RhymeType.Function functionType, Node.Block body)
+        LLVMRef DefineFunction(string name, RhymeType.Function functionType, string[] parameters, Node.Block body)
         {
+
+            if(parameters.Length != functionType.Parameters.Length)
+            {
+                throw new Exception("CC: Arguments mismatch");
+            }
 
             LLVMRef func = null;
 
-            if (!_globals.ContainsKey(name))
-                func = DeclareFunction(functionType, name);
-            else
-                func = GetGlobal(name);
-
+            func = DeclareFunction(functionType, name);
+     
             // It's private linked by default
-            unsafe { LLVM.SetLinkage(func.Value, LLVMLinkage.LLVMLinkerPrivateLinkage); }
+            //unsafe { LLVM.SetLinkage(func.Value, LLVMLinkage.LLVMLinkerPrivateLinkage); }
 
 
             _builder.PositionAtEnd(func.Value.AppendBasicBlock("entry"));
@@ -140,11 +253,12 @@ namespace Rhyme.CodeGeneration
             _locals.Clear();
             _params.Clear();
 
+
             // Parameters
             for (int i = 0; i < functionType.Parameters.Length; i++)
             {
-                var type = LLVMTypeFromRhymeType(functionType.Parameters[i].Type);
-                _params.Add(functionType.Parameters[i].Identifier, new LLVMRef(type, func.Value.Params[i]));
+                var type = LLVMType(functionType.Parameters[i]);
+                _params.Add(parameters[i], new LLVMRef(type, func.Value.Params[i]));
             }
 
             foreach (var stmt in body.ExpressionsStatements)
@@ -158,11 +272,27 @@ namespace Rhyme.CodeGeneration
                     return func;
                 }
 
+                // Locals
+                if(stmt is Node.BindingDeclaration bindDecl)
+                {
+                    foreach(var declarator in bindDecl.Declarators)
+                    {
+                        var local_type = LLVMType(_unit.TypedTree[declarator]);
+
+                        var local_value = _builder.BuildAlloca(local_type);
+                        _locals.Add(declarator.Identifier.Lexeme, new LLVMRef(local_type, local_value));
+
+                        if(declarator.Initializer != null)
+                        { 
+                            _builder.BuildStore((LLVMValueRef)Visit(declarator.Initializer), local_value);
+                        }
+                    }
+                }
                 Visit(stmt);
             }
 
 
-            if(LLVMTypeFromRhymeType(functionType.ReturnType) == LLVMTypeRef.Void)
+            if(LLVMType(functionType.ReturnType) == LLVMTypeRef.Void)
                 _builder.BuildRetVoid();
             else
                 _builder.BuildRet(LLVMValueRef.CreateConstInt(LLVMTypeRef.Int32, 0));
@@ -188,14 +318,14 @@ namespace Rhyme.CodeGeneration
         {
             _debugBuiltIns.Add("dprint", fc =>
             {
-                var m = _LLVMmodule.GetNamedFunction("puts");
-                _builder.BuildCall2(_globals["puts"].Type, _globals["puts"].Value, new[] { (LLVMValueRef)Visit(fc.Args[0]) }, "puts");
+                var m = _module.GetNamedFunction("puts");
+                _builder.BuildCall2(_globals["puts"].Type, _globals["puts"].Value, new[] { (LLVMValueRef)Visit(fc.Arguments[0]) }, "puts");
 
             });
 
             _debugBuiltIns.Add("dprint_int", fc =>
             {
-                var args = fc.Args.Select(arg => (LLVMValueRef)Visit(arg)).ToList();
+                var args = fc.Arguments.Select(arg => (LLVMValueRef)Visit(arg)).ToList();
                 args.Insert(0, _builder.BuildGlobalStringPtr("%d\n"));
 
                 _builder.BuildCall2(_globals["printf"].Type, _globals["printf"].Value, args.ToArray(), "printf");
@@ -216,8 +346,8 @@ namespace Rhyme.CodeGeneration
                 true
             );
 
-            var puts_value = _LLVMmodule.AddFunction("puts", puts);
-            var printf_value = _LLVMmodule.AddFunction("printf", printf);
+            var puts_value = _module.AddFunction("puts", puts);
+            var printf_value = _module.AddFunction("printf", printf);
 
             _globals.Add("puts", new LLVMRef(puts, puts_value));
             _globals.Add("printf", new LLVMRef(printf, printf_value));
@@ -238,7 +368,7 @@ namespace Rhyme.CodeGeneration
                 return name;
         }
 
-
+        RhymeType GetType(Node node) => _unit.TypedTree[node];
 
         #endregion
     }

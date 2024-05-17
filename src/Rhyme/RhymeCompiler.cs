@@ -49,10 +49,16 @@ namespace Rhyme
             var modulesInfo = modularizer.Modularize();
             if(modularizer.HadError)
                 return new CompilerResults(true, modularizer.Errors, null);
-               
+
+
+            List<string> llvmfiles = new();
             foreach (var unit in units)
             { 
                 unit.Modularize(modulesInfo);
+
+                var directorErrors = unit.Direct();
+                if (directorErrors.Count > 0)
+                    return new CompilerResults(true, directorErrors, null);
 
                 var resolveErrors = unit.Resolve();
                 if (resolveErrors.Count > 0)
@@ -62,37 +68,30 @@ namespace Rhyme
                 if (typeErrors.Count > 0)
                     return new CompilerResults(true, typeErrors, null);
 
+                var generateErrors = unit.CodeGenerate();
+                if(generateErrors.Count > 0)
+                    return new CompilerResults(true, generateErrors, null);
+
+                var fileName = $"{unit.ModuleName}__{Path.GetFileNameWithoutExtension(unit.FilePath)}.ll";
+                llvmfiles.Add(fileName);
+                File.WriteAllText(fileName, unit.LLVMCode);
             }
-
-#if NONE
-            var resolver = new Resolver(syntax_trees.ToArray());
-            var modules = resolver.Resolve();
-            if (resolver.HadError)
-                return new CompilerResults(true, resolver.Errors, null);
-
-            var typechecker = new TypeChecker(modules);
-            typechecker.Check();
-
-            if (typechecker.HadError)
-                return new CompilerResults(true, typechecker.Errors, null);
-
-            var generator = new CodeGenerator(modules);
-            var ll_codes = generator.Generate();
-            if (generator.HadError)
-                return new CompilerResults(true, generator.Errors, null);
-
-            foreach(var code in ll_codes)
-            {
-                Debug.WriteLine(code.llvmCode);
-                
-                File.WriteAllText($"{code.moduleName}.ll", code.llvmCode);
-            }
-
-            var clang_process = Process.Start(new ProcessStartInfo("clang", $"{string.Join(' ', ll_codes.Select(ll => ll.moduleName + ".ll"))} -o {Parameters.ExecutableName} -g -gcodeview"));
-            clang_process.WaitForExit();
             stopwatch.Stop();
 
-            if(clang_process.ExitCode == 0)
+            var clangProcess = Process.Start(
+                new ProcessStartInfo(
+                    "clang",
+                    $"{string.Join(' ', llvmfiles.ToArray())} -o {Path.GetFileName(Parameters.ExecutableName)}"
+                )
+            );
+            clangProcess.WaitForExit();
+
+            foreach(var llvmFile in llvmfiles)
+            {
+                File.Delete(llvmFile);
+            }
+
+            if (clangProcess.ExitCode == 0)
             {
                 Console.WriteLine($"Output: {Path.GetFullPath(Parameters.ExecutableName)}");
                 Console.WriteLine($"Compilation done at {stopwatch.ElapsedMilliseconds}ms.");
@@ -101,7 +100,8 @@ namespace Rhyme
                 Console.Clear();
                 Process.Start(Parameters.ExecutableName);
             }
-#endif
+
+
             return new CompilerResults(false, null, Parameters.ExecutableName);
 
         }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -159,6 +160,14 @@ namespace Rhyme.Parsing
 
         private Node.TopLevelDeclaration TopLevelDeclaration()
         {
+
+            if (PeekAll(TokenType.Percent))
+            {
+                var node =  new Node.TopLevelDeclaration(Directive(), DeclarationAccessModifier.None);
+                Consume(TokenType.Semicolon, "';' expected");
+                return node;
+            }
+
             bool _extern = Match(TokenType.Extern);
             bool _global = Match(TokenType.Global);
 
@@ -174,13 +183,10 @@ namespace Rhyme.Parsing
             var type = Type();
 
 
-            if (Match(TokenType.Identifier))
+            if (PeekAll(TokenType.Identifier, TokenType.OpenParen))
             {
-                if (Match(TokenType.OpenParen))
-                {
-                    _current = revert;
-                    return new Node.TopLevelDeclaration(FunctionDeclaration(), modifier);
-                }
+                _current = revert;
+                return new Node.TopLevelDeclaration(FunctionDeclaration(), modifier);
             }
 
             _current = revert;
@@ -223,7 +229,7 @@ namespace Rhyme.Parsing
         {
             List<Node.ParamDecl> parameters = new();
             
-            if (!Match(TokenType.CloseParen))
+            if (!PeekAll(TokenType.CloseParen))
             {
                 do
                 {
@@ -249,8 +255,11 @@ namespace Rhyme.Parsing
         {
             var type = Type();
 
-            /*TODO: multiple declarators*/
-            var declarator = Declarator();
+            List<Node.Declarator> declarators = new();
+            do
+            {
+                declarators.Add(Declarator());
+            } while ((Match(TokenType.Comma)));
 
             Node expr = null;
             if (Match(TokenType.Equal))
@@ -259,7 +268,7 @@ namespace Rhyme.Parsing
             }
 
 
-            return new Node.BindingDeclaration(type, declarator);
+            return new Node.BindingDeclaration(type, declarators.ToArray());
         }
 
         Node.Declarator Declarator()
@@ -288,25 +297,34 @@ namespace Rhyme.Parsing
             if(PeekAll(TokenType.Identifier, TokenType.Equal))
             {
                 node = Assignment();
-                Consume(TokenType.Semicolon, "';' Expected");
-                return node;
             }
-
-            if (PeekAll(TokenType.Return))
+            else if (PeekAll(TokenType.Return))
             {
                 node =  Return();
-                Consume(TokenType.Semicolon, "';' Expected");
-                return node;
             }
-
-            node = BindingDeclaration();
+            else if(TryParse(() => Type(), () => Match(TokenType.Identifier))){
+                node = BindingDeclaration();
+            }
+            else
+            {
+                node = Expression();
+            }
 
             Consume(TokenType.Semicolon, "';' Expected");
             return node;
         }
 
+        private bool TryParse(Action parsingAction, Func<bool> expectedPredicate)
+        {
+            var revert = _current;
+            parsingAction();
+            var b =  expectedPredicate();
+            _current = revert;
+            return b;
+        }
         private Node Return()
         {
+            Consume(TokenType.Return, "'return' Expected");
             return new Node.Return(Expression());
         }
         #endregion
@@ -352,6 +370,7 @@ namespace Rhyme.Parsing
 
         private Node Directive()
         {
+            Consume(TokenType.Percent, "'%' Expected");
             var identifer = Consume(TokenType.Identifier, "Expects a directive name");
             Consume(TokenType.OpenParen, "'(' Expected");
 
